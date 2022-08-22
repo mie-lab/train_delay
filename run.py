@@ -3,7 +3,6 @@ import pickle
 import os
 import matplotlib.pyplot as plt
 import pandas as pd
-from scipy.stats import pearsonr, spearmanr
 
 from train_delay.baselines import run_simple_baselines
 from train_delay.metrics import get_metrics
@@ -80,6 +79,8 @@ if __name__ == "__main__":
 
     # run baselines
     res_dict = run_simple_baselines(train_set, val_set)
+    print("Intermediate results of baselines:")
+    print(pd.DataFrame(res_dict).swapaxes(1, 0).sort_values("MSE"))
 
     # make suitable data for ML models
     use_features = select_features(data.columns)
@@ -109,24 +110,30 @@ if __name__ == "__main__":
     print("DATA SHAPES", train_set_nn_x.shape, train_set_nn_y.shape, val_set_nn_x.shape, val_set_nn_y.shape)
 
     # Train MLP with uncertainty
-    for model_type in ["nn_aleatoric"]:
+    model_weights = ["trained_models/random_forest.p", "trained_models/aleatoric_nn", "trained_models/dropout_nn"]
+    # model_weights = [None, None, None]
+    for model_type, model_weights in zip(["rf", "nn_aleatoric", "nn_dropout"], model_weights):
         print("-------------- ", model_type, "--------------")
         if model_type == "rf":
-            pred, unc = fit_rf_model(train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y)
+            pred, unc = fit_rf_model(
+                train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, load_model=model_weights
+            )
         elif model_type == "nn_aleatoric":
-            pred, unc = fit_mlp_aleatoric(train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, epochs=1)
+            pred, unc = fit_mlp_aleatoric(
+                train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, epochs=1, load_model=model_weights
+            )
         elif model_type == "nn_dropout":
             pred, unc = fit_mlp_test_time_dropout(
-                train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, epochs=5, dropout_rate=0.5
+                train_set_nn_x,
+                train_set_nn_y,
+                val_set_nn_x,
+                val_set_nn_y,
+                epochs=5,
+                dropout_rate=0.5,
+                load_model=model_weights,
             )
         else:
             raise NotImplementedError
-
-        # Get correlation with uncertainty
-        rmse = np.sqrt((pred - val_set_nn_y) ** 2)
-        print("Correlation mse & unc: ", pearsonr(unc, rmse ** 2)[0])
-        print("Correlation rmse & unc: ", pearsonr(unc, rmse)[0])
-        print("Spearman: ", spearmanr(unc, rmse)[0])
 
         # plot
         plot_by_obs_count(
@@ -136,8 +143,13 @@ if __name__ == "__main__":
         # add to the other metrics
         temp_df = pd.DataFrame(pred, columns=["pred"])
         temp_df["final_delay"] = val_set_nn_y
-        metrics_nn_torch = get_metrics(temp_df[["pred", "final_delay"]], model_type)
+        temp_df["unc"] = unc
+        metrics_nn_torch = get_metrics(temp_df[["pred", "final_delay", "unc"]], model_type)
+        # save in general dictionary
+        print("metrics", metrics_nn_torch[model_type])
         res_dict[model_type] = metrics_nn_torch[model_type]
 
-    print(pd.DataFrame(res_dict).swapaxes(1, 0).sort_values("MSE"))
+    result_table = pd.DataFrame(res_dict).swapaxes(1, 0).sort_values("MSE")
+    print(result_table)
+    result_table.to_csv(os.path.join("outputs", "results_summary.csv"))
 

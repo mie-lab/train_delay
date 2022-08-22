@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from .metrics import get_metrics
 
 
@@ -6,6 +7,7 @@ def run_simple_baselines(train_set, val_set):
     # random predictions
     pred_random_model = val_set[["train_id_daily", "final_delay"]].copy()
     pred_random_model["pred"] = np.random.rand(len(val_set)) * 2 - 1
+    pred_random_model["unc"] = np.random.rand(len(val_set))
     metrics_pred_random_model = get_metrics(pred_random_model, "random")
 
     # average per train ID
@@ -19,6 +21,7 @@ def run_simple_baselines(train_set, val_set):
     # overall average
     pred_overall_avg = val_set[["train_id_daily", "final_delay"]].copy()
     pred_overall_avg["pred"] = train_set["final_delay"].mean()
+    pred_overall_avg["unc"] = train_set["final_delay"].std()
     metrics_pred_overall_avg = get_metrics(pred_overall_avg, "overall avg")
 
     # KNN
@@ -49,7 +52,13 @@ def simple_avg_bl(train_data, test_data, agg_func="mean"):
             avg_delay = id_trainset["final_delay"].mean()
         elif agg_func == "median":
             avg_delay = id_trainset["final_delay"].median()
+        simple_unc = id_trainset["final_delay"].std()
+        if pd.isna(avg_delay):
+            avg_delay = 0  # TODO: train id does not appear in train_set, only in test
+            simple_unc = 1  # use 1 as an expected uncertainty for unseen train IDs
+
         output_pred_df.loc[output_pred_df["train_id_daily"] == train_id, "pred"] = avg_delay
+        output_pred_df.loc[output_pred_df["train_id_daily"] == train_id, "unc"] = simple_unc
     return output_pred_df
 
 

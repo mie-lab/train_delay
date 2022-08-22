@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
+import os
 import pandas as pd
 
 device = "cpu"
@@ -96,17 +97,22 @@ def train_model(model, epochs, train_loader, test_loader, criterion):
     return losses, test_losses
 
 
-def fit_mlp_aleatoric(train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, epochs=1):
-    criterion = attenuation_loss
-    batch_size = 8
-    train_set_nn_torch = TrainDelayDataset(train_set_nn_x, train_set_nn_y)
-    val_set_nn_torch = TrainDelayDataset(val_set_nn_x, val_set_nn_y)
-    train_loader = DataLoader(train_set_nn_torch, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(val_set_nn_torch, batch_size=batch_size, shuffle=False)
-
+def fit_mlp_aleatoric(train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, epochs=1, load_model=None):
     model = TrainDelayMLP(train_set_nn_x.shape[1], 2)
-    losses, test_losses = train_model(model, epochs, train_loader, test_loader, criterion)
 
+    if load_model is None:
+        criterion = attenuation_loss
+        batch_size = 8
+        train_set_nn_torch = TrainDelayDataset(train_set_nn_x, train_set_nn_y)
+        val_set_nn_torch = TrainDelayDataset(val_set_nn_x, val_set_nn_y)
+        train_loader = DataLoader(train_set_nn_torch, batch_size=batch_size, shuffle=True)
+        test_loader = DataLoader(val_set_nn_torch, batch_size=batch_size, shuffle=False)
+        losses, test_losses = train_model(model, epochs, train_loader, test_loader, criterion)
+        torch.save(model.state_dict(), os.path.join("trained_models", "aleatoric_nn"))
+    else:
+        model.load_state_dict(torch.load(load_model))
+
+    # predict
     pred = model(torch.from_numpy(val_set_nn_x).float())
 
     unc = pred[:, 1].detach().numpy()  # sigma
@@ -115,16 +121,23 @@ def fit_mlp_aleatoric(train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y
     return pred, np.exp(unc)
 
 
-def fit_mlp_test_time_dropout(train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, epochs=1, dropout_rate=0.3):
-    criterion = mse_loss
-    batch_size = 8
-    train_set_nn_torch = TrainDelayDataset(train_set_nn_x, train_set_nn_y)
-    val_set_nn_torch = TrainDelayDataset(val_set_nn_x, val_set_nn_y)
-    train_loader = DataLoader(train_set_nn_torch, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(val_set_nn_torch, batch_size=batch_size, shuffle=False)
+def fit_mlp_test_time_dropout(
+    train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, epochs=1, dropout_rate=0.3, load_model=None
+):
 
     model = TrainDelayMLP(train_set_nn_x.shape[1], 1, dropout_rate=dropout_rate)
-    losses, test_losses = train_model(model, epochs, train_loader, test_loader, criterion)
+
+    if load_model is None:
+        criterion = mse_loss
+        batch_size = 8
+        train_set_nn_torch = TrainDelayDataset(train_set_nn_x, train_set_nn_y)
+        val_set_nn_torch = TrainDelayDataset(val_set_nn_x, val_set_nn_y)
+        train_loader = DataLoader(train_set_nn_torch, batch_size=batch_size, shuffle=True)
+        test_loader = DataLoader(val_set_nn_torch, batch_size=batch_size, shuffle=False)
+        losses, test_losses = train_model(model, epochs, train_loader, test_loader, criterion)
+        torch.save(model.state_dict(), os.path.join("trained_models", "dropout_nn"))
+    else:
+        model.load_state_dict(torch.load(load_model))
 
     df_ttd = pd.DataFrame()
     for i in range(10):
