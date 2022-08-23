@@ -23,29 +23,8 @@ def split_train_test(data, ratio=0.8):
 
 
 def select_features(cols):
-    train_id_feats = [col for col in cols if col.startswith("train_id_SBB")]
-    use_features = [
-        "delay_dep",
-        "obs_count",
-        "time_to_end_real",
-        "time_to_end_plan",
-        "feat_weather_tavg",
-        "feat_weather_tmin",
-        "feat_weather_tmax",
-        "feat_weather_prcp",
-        "feat_weather_wdir",
-        "feat_weather_wspd",
-        "feat_weather_wpgt",
-        "feat_weather_pres",  # weather features
-        # 'feat_weather_snow' 'feat_weather_tsun'
-        "feat_trip_final_arr_plan_hour",
-        "feat_trip_final_arr_plan_day",
-        "feat_trip_final_arr_plan_hour_sin",
-        "feat_trip_final_arr_plan_hour_cos",
-        "feat_trip_final_arr_plan_day_sin",
-        "feat_trip_final_arr_plan_day_cos",  # time features
-        # train ID
-    ]  # + train_id_feats
+    # train_id_feats = [col for col in cols if col.startswith("train_id_SBB")]
+    use_features = ["delay_dep", "obs_count"] + [feat for feat in cols if feat.startswith("feat")]
     return use_features
 
 
