@@ -1,5 +1,6 @@
 import numpy as np
 import pickle
+import argparse
 import os
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -74,17 +75,52 @@ def get_train_val_test(train_set, val_set, test_set, use_features, training=Fals
         return train_set.index, test_set.index, train_set_nn_x, train_set_nn_y, test_set_nn_x, test_set_nn_y
 
 
-if __name__ == "__main__":
+def get_features(columns, version=2):
+    if version == 1:
+        use_features = [
+            "delay_dep",
+            "obs_count",
+            "time_to_end_real",
+            "time_to_end_plan",
+            "feat_weather_tavg",
+            "feat_weather_tmin",
+            "feat_weather_tmax",
+            "feat_weather_prcp",
+            "feat_weather_wdir",
+            "feat_weather_wspd",
+            "feat_weather_wpgt",
+            "feat_weather_pres",  # weather features
+            # 'feat_weather_snow' 'feat_weather_tsun'
+            "feat_trip_final_arr_plan_hour",
+            "feat_trip_final_arr_plan_day",
+            "feat_trip_final_arr_plan_hour_sin",
+            "feat_trip_final_arr_plan_hour_cos",
+            "feat_trip_final_arr_plan_day_sin",
+            "feat_trip_final_arr_plan_day_cos",  # time features
+        ]
+    # train_id_feats = [col for col in cols if col.startswith("train_id_SBB")]
+    elif version == 2:
+        use_features = ["delay_dep", "obs_count"] + [feat for feat in columns if feat.startswith("feat")]
+    else:
+        raise NotImplementedError
+    return use_features
 
-    data = pd.read_csv(os.path.join("data", "data_enriched.csv"))
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", "--inp_path", type=str, default=os.path.join("data", "data_enriched.csv"))
+    parser.add_argument("-m", "--model_dir", default="best_models", type=str, help="name of model directory")
+    args = parser.parse_args()
+
+    data = pd.read_csv(args.inp_path)
     data.index.name = "id"
 
     # split into train, val and test
     train_set, val_set, test_set = split_train_test(data)
 
     # select suitable features for ML models
-    use_features = ["delay_dep", "obs_count"] + [feat for feat in data.columns if feat.startswith("feat")]
-    # train_id_feats = [col for col in cols if col.startswith("train_id_SBB")]
+    use_features = get_features(data.columns, version=2)
+
     # preprocess and dropn the ones with NaN features
     (
         train_set_index,
@@ -107,7 +143,7 @@ if __name__ == "__main__":
     print("DATA SHAPES", train_set_nn_x.shape, train_set_nn_y.shape, test_set_nn_x.shape, test_set_nn_y.shape)
 
     # Train MLP with uncertainty
-    model_weights = "2_many_epochs"
+    model_weights = args.model_dir
     # model_weights = None
     for model_type in ["rf", "nn_aleatoric", "nn_dropout"]:
         model_func = MODEL_FUNC_DICT[model_type]
