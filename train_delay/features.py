@@ -42,6 +42,18 @@ class Features:
         ]
         print("Number of samples after outlier removal", len(self.data))
 
+    def transform_obs_count(self):
+        # get maximum observation per train ID
+        max_obs_per_train = pd.DataFrame(self.data.groupby("train_id")["obs_count"].max()).rename(
+            columns={"obs_count": "feat_obs_count"}
+        )
+        # merge with data
+        self.data = self.data.merge(max_obs_per_train, how="left", left_on="train_id", right_index=True)
+        # feat obs is divided by the maximum
+        self.data["feat_obs_count"] = self.data["obs_count"] / self.data["feat_obs_count"]
+        # set the ones of the final observation to NaN! Then it is dropped later
+        self.data.loc[self.data["feat_obs_count"] == 1, "feat_obs_count"] = pd.NA
+
     def add_weather(self, weather_path=None):
         def get_daily_weather(row):
             lng, lat = (row["lng"], row["lat"])

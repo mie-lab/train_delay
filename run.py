@@ -105,7 +105,7 @@ def get_features(columns, version=2):
         ]
     # train_id_feats = [col for col in cols if col.startswith("train_id_SBB")]
     elif version == 2:
-        use_features = ["delay_dep", "obs_count"] + [
+        use_features = ["delay_dep"] + [
             feat for feat in columns if feat.startswith("feat")  # and not feat.startswith("feat_weather")
         ]
     else:
