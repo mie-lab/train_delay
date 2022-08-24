@@ -5,6 +5,7 @@ import os
 import matplotlib.pyplot as plt
 import pandas as pd
 import geopandas as gpd
+from datetime import timedelta
 from scipy.stats import pearsonr
 
 from meteostat import Daily
@@ -176,7 +177,7 @@ class Features:
         data_temp.loc[pd.isna(self.data["dep_real"]), "dep_real"] = self.data.loc[
             pd.isna(self.data["dep_real"]), "arr_real"
         ]
-        print(any(pd.isna(data_temp["dep_real"])))
+        # print(any(pd.isna(data_temp["dep_real"])))
         # secondly fill the leftover NaNs with dep_plan
         data_temp.loc[pd.isna(data_temp["dep_real"]), "dep_real"] = data_temp.loc[
             pd.isna(self.data["dep_real"]), "dep_plan"
@@ -196,6 +197,74 @@ class Features:
                     running_avg_delay = ((running_avg_delay * counter) + row["final_delay"]) / (counter + 1)
                     counter += 1
             self.data.loc[day_grouped.index, "feat_delay_on_day"] = avg_sofar_thisday
+
+    def delays_other_trains(self, order=5, minute_thresh=10):
+        """
+        Get delays of surrounding trains
+        
+        NOTES:
+        - We consider all observations in the 10 minutes (minute_thresh) before the target observation
+        - The train ID must be different --> we are interested in the delay of other trains
+        - We restrict it to observations that are further ahead on the track --> if we are at obs point 100, we only
+        consider observations at point 101+
+        - We sort all remaining delays by their closeness in terms of observation points, and keep the <order> that
+        are closest. Underlying assumption: The train that is preceding our train, i.e. just slightly ahead in terms of
+        observation points, has most influence on the current delay
+        - we only retrieve the current delay of these surrounding trains, not their position. We could do this by adding
+        the obs-count-diff as another feature
+        """
+        temp_data = self.data.copy()
+        # sort by departure real and transform into datetime
+        temp_data.sort_values("dep_real", inplace=True)
+        temp_data.dropna(subset=["dep_real"], inplace=True)
+        temp_data["dep_real"] = pd.to_datetime(temp_data["dep_real"])
+
+        # init counter
+        shift_counter = 1
+        any_less_than_threshold = True
+
+        while any_less_than_threshold:
+            # shift delays, obs count, train id and dep_real
+            temp_data[f"prev_obs_count-{shift_counter}"] = temp_data["obs_count"].shift(shift_counter)
+            prev_train_id = temp_data["train_id"].shift(shift_counter)  # temp_data[f"next_train_id-{shift_counter}"]
+            prev_dep_real = temp_data["dep_real"].shift(shift_counter)  # temp_data[f"next_dep_real-{shift_counter}"]
+            temp_data[f"prev_delay_dep-{shift_counter}"] = temp_data["delay_dep"].shift(shift_counter)
+            # Remove the ones where the next train ID is the same
+            temp_data.loc[prev_train_id == temp_data["train_id"], f"prev_delay_dep-{shift_counter}"] = pd.NA
+            # Remove the ones with a smaller obs count
+            temp_data.loc[
+                temp_data[f"prev_obs_count-{shift_counter}"] < temp_data["obs_count"], f"prev_delay_dep-{shift_counter}"
+            ] = pd.NA
+            # compute how many are inside the 10min frame
+            inside_10_min = prev_dep_real > temp_data["dep_real"] - timedelta(minutes=minute_thresh)
+            # print(shift_counter, sum(inside_10_min))
+            any_less_than_threshold = sum(inside_10_min) > 0
+            shift_counter += 1
+
+        # columns that we need for further steps
+        delay_dep_cols = [col for col in temp_data.columns if col.startswith("prev_delay_dep")]
+        obs_count_cols = [col for col in temp_data.columns if col.startswith("prev_obs_count")]
+
+        # aggregate the closest columns
+        def get_new_cols(row):
+            """Function to aggreagte the delays of nearby trains"""
+            obs_idx = row[obs_count_cols].argsort()
+            closest_delays_placeholder = np.zeros(order)
+            closest_delays = row[delay_dep_cols].iloc[obs_idx].dropna()
+            # TODO: do we want to remove train ids that appear multiple times in the closest delay?
+            closest_delays_placeholder[: len(closest_delays)] = closest_delays[:order]
+            dict_with_closest = {"feat_delay_closest_" + str(i): closest_delays_placeholder[i] for i in range(order)}
+            return pd.Series(dict_with_closest)
+
+        print("Starting to aggregate closest delays...")
+        closest_delay_df = []
+        for _, row in temp_data.iterrows():
+            closest_delay_df.append(get_new_cols(row))
+        closest_delay_df = pd.DataFrame(closest_delay_df, index=temp_data.index)
+        print("Finished.")
+
+        # merge
+        self.data = self.data.merge(closest_delay_df, how="left", left_index=True, right_index=True)
 
     def train_id_onehot(self):
         one_hot_train_id = pd.get_dummies(self.data["train_id_daily"], prefix="feat_train_id")

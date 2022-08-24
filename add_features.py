@@ -1,4 +1,5 @@
 import os
+from xml.sax.handler import feature_external_ges
 
 from config import *
 from train_delay.features import Features
@@ -16,6 +17,9 @@ if __name__ == "__main__":
     featurizer.historic_delay_at_obs(order=order)
     featurizer.avg_historic_final_delay(order=order)
     featurizer.general_delay_on_day()
+
+    # add delay of surrounding trains
+    featurizer.delays_other_trains(order=5, minute_thresh=10)
 
     # # add weather
     featurizer.add_weather(weather_path=os.path.join("data", "weather_data.csv"))
