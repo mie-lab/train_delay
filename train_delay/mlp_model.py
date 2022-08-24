@@ -62,11 +62,16 @@ def mse_loss(output, y_true, **kwargs):
     return torch.mean((output - y_true) ** 2)
 
 
+def average_batches(loss, n_average=1000):
+    return np.array(loss)[: -(len(loss) % n_average)].reshape((-1, n_average)).mean(axis=1)
+
+
 def train_model(model, epochs, train_loader, test_loader, criterion, name="nn"):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
 
     model.train()
     best_performance = np.inf
+    epoch_test_loss, epoch_train_loss = [], []
     for epoch in range(epochs):
         losses = []
         for batch_num, input_data in enumerate(train_loader):
@@ -78,6 +83,8 @@ def train_model(model, epochs, train_loader, test_loader, criterion, name="nn"):
             output = model(x)
             loss = criterion(output, y)
             loss.backward()
+            if batch_num == 10:
+                print("train loss at batch 10:", round(loss.item(), 2))
             if criterion == attenuation_loss:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
             losses.append(loss.item())
@@ -97,8 +104,6 @@ def train_model(model, epochs, train_loader, test_loader, criterion, name="nn"):
                 y = y.to(device)
                 output = model(x)
                 loss = criterion(output, y, validate=True)
-                if batch_num == 10:
-                    print("train loss at batch 10:", loss.item())
                 test_losses.append(loss.item())
         model.train()
         print(
@@ -111,7 +116,9 @@ def train_model(model, epochs, train_loader, test_loader, criterion, name="nn"):
         # print(
         #     f"\n Epoch {epoch} (median) | TRAIN Loss {round(np.median(losses), 3)} | TEST loss {round(np.median(test_losses), 3)} \n"
         # )
-    plot_losses(losses, test_losses, name)
+        epoch_test_loss.append(np.mean(test_losses))
+        epoch_train_loss.extend(list(average_batches(losses)))
+    plot_losses(epoch_train_loss, epoch_test_loss, name)
 
 
 def plot_losses(losses, test_losses, name):
