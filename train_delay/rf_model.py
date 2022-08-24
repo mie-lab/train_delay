@@ -4,11 +4,11 @@ import os
 import pickle
 
 
-def fit_rf_model(train_set_rf_x, train_set_rf_y, val_set_rf_x, val_set_rf_y, use_features=None, load_model=None):
+def fit_rf_model(train_set_rf_x, train_set_rf_y, val_set_rf_x, val_set_rf_y, use_features=None, load_model=None, **kwargs):
     # init tree
     regr = RandomForestRegressor(max_depth=30, random_state=0)
     if load_model is not None:
-        with open(load_model, "rb") as infile:
+        with open(os.path.join("trained_models", load_model, "random_forest.p"), "rb") as infile:
             regr = pickle.load(infile)
     else:
         # fit
