@@ -13,7 +13,7 @@ from train_delay.rf_model import fit_rf_model
 MODEL_FUNC_DICT = {"nn_dropout": fit_mlp_test_time_dropout, "nn_aleatoric": fit_mlp_aleatoric, "rf": fit_rf_model}
 
 
-def split_train_test(data, ratio=0.8):
+def split_train_test(data, ratio=0.8, save_path=None):
     # split into train and test by day
     all_days = data["day"].unique()
     cutoff = round(len(all_days) * ratio)
@@ -21,8 +21,12 @@ def split_train_test(data, ratio=0.8):
     train_days, val_days, test_days = all_days[:cutoff], all_days[cutoff:test_val_cutoff], all_days[test_val_cutoff:]
     print("cuttoff after train:", cutoff, "cutoff after val", test_val_cutoff, "total nr days", len(all_days))
     out = []
-    for days in [train_days, val_days, test_days]:
+    for days, split_name in zip([train_days, val_days, test_days], ["train", "val", "test"]):
         out.append(data[data["day"].isin(days)])
+        if save_path is not None:
+            data.loc[data["day"].isin(days), "split"] = split_name
+    if save_path is not None:
+        data.to_csv(save_path, index=False)
     return tuple(out)
 
 
@@ -101,7 +105,9 @@ def get_features(columns, version=2):
         ]
     # train_id_feats = [col for col in cols if col.startswith("train_id_SBB")]
     elif version == 2:
-        use_features = ["delay_dep", "obs_count"] + [feat for feat in columns if feat.startswith("feat")]
+        use_features = ["delay_dep", "obs_count"] + [
+            feat for feat in columns if feat.startswith("feat")  # and not feat.startswith("feat_weather")
+        ]
     else:
         raise NotImplementedError
     return use_features
@@ -114,10 +120,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     data = pd.read_csv(args.inp_path)
-    data.index.name = "id"
 
     # split into train, val and test
-    train_set, val_set, test_set = split_train_test(data)
+    train_set, val_set, test_set = split_train_test(data)  # , save_path="data/data_enriched.csv")
 
     # select suitable features for ML models
     use_features = get_features(data.columns, version=2)

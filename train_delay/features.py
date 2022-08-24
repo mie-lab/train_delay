@@ -42,7 +42,7 @@ class Features:
         ]
         print("Number of samples after outlier removal", len(self.data))
 
-    def add_weather(self,):
+    def add_weather(self, weather_path=None):
         def get_daily_weather(row):
             lng, lat = (row["lng"], row["lat"])
             loc = MeteoPoint(lat, lng)
@@ -58,12 +58,23 @@ class Features:
                         return pd.Series(self.data.iloc[0])
                 return pd.NA
 
-        weather_input = self.data[["lng", "lat", "dep_real"]].dropna()
-        weather_data = weather_input.apply(get_daily_weather, axis=1)
-
-        weather_data["prcp"] = weather_data["prcp"].fillna(0)
-        weather_data.rename(columns={c: "feat_weather_" + c for c in weather_data.columns}, inplace=True)
-        self.data = self.data.merge(weather_data, how="left", left_index=True, right_index=True)
+        if weather_path is not None:
+            weather_data = pd.read_csv(weather_path).set_index(["train_id", "obs_count"])
+            # Check how many nans there are per weather feature and remove the ones with too many
+            weather_feats = weather_data.columns
+            nr_nans = pd.isna(weather_data[weather_feats]).sum()
+            cols_too_many_nans = list(nr_nans[nr_nans > 0.02 * len(weather_data)].index)
+            weather_feats = [f for f in weather_feats if f not in cols_too_many_nans]
+            # merge with data
+            self.data = self.data.merge(
+                weather_data[weather_feats], how="left", left_on=["train_id", "obs_count"], right_index=True
+            )
+        else:
+            weather_input = self.data[["lng", "lat", "dep_real"]].dropna()
+            weather_data = weather_input.apply(get_daily_weather, axis=1)
+            weather_data["prcp"] = weather_data["prcp"].fillna(0)
+            weather_data.rename(columns={c: "feat_weather_" + c for c in weather_data.columns}, inplace=True)
+            self.data = self.data.merge(weather_data, how="left", left_index=True, right_index=True)
 
     def time_features(self, col_name):
         # add basic features

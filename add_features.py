@@ -18,7 +18,7 @@ if __name__ == "__main__":
     featurizer.general_delay_on_day()
 
     # # add weather
-    # featurizer.add_weather(self.data)
+    featurizer.add_weather(weather_path=os.path.join("data", "weather_data.csv"))
 
     # # add train ID as one hot:
     # featurizer.train_id_onehot()
