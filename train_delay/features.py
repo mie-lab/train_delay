@@ -34,6 +34,13 @@ class Features:
         self.data["feat_time_to_end_real"] = (self.data["trip_final_arr_plan"] - self.data["dep_real"]).dt.seconds
         self.data["feat_time_to_end_plan"] = (self.data["trip_final_arr_plan"] - self.data["dep_plan"]).dt.seconds
 
+    def remove_outliers(self, outlier_cutoff=5):
+        # remove outliers
+        print("Number of samples initial", len(self.data))
+        self.data = self.data[
+            (self.data["final_delay"] > -1 * outlier_cutoff) & (self.data["final_delay"] < outlier_cutoff)
+        ]
+        print("Number of samples after outlier removal", len(self.data))
 
     def add_weather(self,):
         def get_daily_weather(row):
@@ -174,29 +181,3 @@ class Features:
     def save(self, out_path=os.path.join("data", "data_enriched.csv")):
         # save
         self.data.to_csv(out_path, index=False)
-
-
-if __name__ == "__main__":
-
-    featurizer = Features(os.path.join("data", "test_data.csv"))
-    order = 3
-
-    # add previous delay features
-    featurizer.delay_at_preceding_obs(order=order)
-    featurizer.historic_delay_at_obs(order=order)
-    featurizer.avg_historic_final_delay(order=order)
-    featurizer.general_delay_on_day()
-
-    # # add weather
-    # featurizer.add_weather(self.data)
-
-    # # add train ID as one hot:
-    # featurizer.train_id_onehot()
-
-    # add time features
-    featurizer.time_features("dep_real")
-    featurizer.time_features("trip_final_arr_plan")
-
-    # save
-    featurizer.save()
-

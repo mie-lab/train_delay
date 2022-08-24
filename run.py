@@ -14,6 +14,7 @@ MODEL_FUNC_DICT = {"nn_dropout": fit_mlp_test_time_dropout, "nn_aleatoric": fit_
 
 
 def split_train_test(data, ratio=0.8):
+    # split into train and test by day
     all_days = data["day"].unique()
     cutoff = round(len(all_days) * ratio)
     test_val_cutoff = (len(all_days) - cutoff) // 2 + cutoff

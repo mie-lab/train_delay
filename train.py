@@ -8,7 +8,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--inp_path", type=str, default=os.path.join("data", "data_enriched.csv"))
     parser.add_argument("-m", "--method", default="rf", type=str, help="one of rf, nn_aleatoric or nn_dropout")
-    parser.add_argument("-e", "--epochs", default=1, type=int, help="number of epochs")
+    parser.add_argument("-e", "--epochs", default=10, type=int, help="number of epochs")
     parser.add_argument("-v", "--version", default=2, type=int, help="version of feature set")
     args = parser.parse_args()
 

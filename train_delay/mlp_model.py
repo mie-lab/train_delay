@@ -6,22 +6,31 @@ import os
 import pandas as pd
 
 device = "cpu"
+from config import OUTLIER_CUTOFF
+
+scaling_fun = {
+    "sigmoid": (lambda x: torch.sigmoid(x) * 2 * OUTLIER_CUTOFF - OUTLIER_CUTOFF),  # scale from [0, 1] to [-5, 5]
+    "tanh": (lambda x: torch.sigmoid(x) * OUTLIER_CUTOFF),  # scale from [-1, 1] to [-5, 5]
+}
 
 
 class TrainDelayMLP(nn.Module):
-    def __init__(self, inp_size, out_size, dropout_rate=0):
+    def __init__(self, inp_size, out_size, dropout_rate=0, act="sigmoid"):
         super(TrainDelayMLP, self).__init__()
         self.linear_1 = nn.Linear(inp_size, 128)
         self.dropout1 = nn.Dropout(dropout_rate)
         self.linear_2 = nn.Linear(128, 128)
         self.dropout2 = nn.Dropout(dropout_rate)
         self.linear_3 = nn.Linear(128, out_size)
+        self.final_act = scaling_fun[
+            act
+        ]  # TODO: aleatoric --> activation function should only be for mean, not for std!!
 
     def forward(self, x):
         hidden = self.dropout1(torch.relu(self.linear_1(x)))
         hidden = self.dropout2(torch.relu(self.linear_2(hidden)))
-        out = self.linear_3(hidden)
-        return out  # no activation function
+        out = self.final_act(self.linear_3(hidden))
+        return out
 
 
 class TrainDelayDataset(Dataset):
@@ -53,10 +62,11 @@ def mse_loss(output, y_true, **kwargs):
     return torch.mean((output - y_true) ** 2)
 
 
-def train_model(model, epochs, train_loader, test_loader, criterion):
+def train_model(model, epochs, train_loader, test_loader, criterion, name="nn"):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
 
     model.train()
+    best_performance = np.inf
     for epoch in range(epochs):
         losses = []
         for batch_num, input_data in enumerate(train_loader):
@@ -74,9 +84,11 @@ def train_model(model, epochs, train_loader, test_loader, criterion):
 
             optimizer.step()
 
-            if batch_num == 10:
-                print("\tEpoch %d | Batch %d | Loss %6.2f" % (epoch, batch_num, np.median(losses)))
+            # if batch_num == 10:
+            #     print("\tEpoch %d | Batch %d | Loss %6.2f" % (epoch, batch_num, np.median(losses)))
 
+        # TESTING
+        model.eval()
         with torch.no_grad():
             test_losses = []
             for batch_num, input_data in enumerate(test_loader):
@@ -86,16 +98,20 @@ def train_model(model, epochs, train_loader, test_loader, criterion):
                 output = model(x)
                 loss = criterion(output, y, validate=True)
                 if batch_num == 10:
-                    print(loss.item())
+                    print("train loss at batch 10:", loss.item())
                 test_losses.append(loss.item())
-
-        #         print(
-        #             f"\n Epoch {epoch} | TRAIN Loss {sum(losses) / len(losses)} | TEST loss {sum(test_losses) / len(test_losses)} \n"
-        #         )
+        model.train()
         print(
-            f"\n Epoch {epoch} (median) | TRAIN Loss {round(np.median(losses), 3)} | TEST loss {round(np.median(test_losses), 3)} \n"
+            f"\n Epoch {epoch} | TRAIN Loss {sum(losses) / len(losses)} | TEST loss {sum(test_losses) / len(test_losses)} \n"
         )
-    return losses, test_losses
+        if sum(test_losses) < best_performance:
+            best_performance = sum(test_losses)
+            torch.save(model.state_dict(), os.path.join("trained_models", name))
+            print("Saved model")
+        # print(
+        #     f"\n Epoch {epoch} (median) | TRAIN Loss {round(np.median(losses), 3)} | TEST loss {round(np.median(test_losses), 3)} \n"
+        # )
+    plot_losses(losses, test_losses, name)
 
 
 def plot_losses(losses, test_losses, name):
@@ -120,15 +136,12 @@ def fit_mlp_aleatoric(train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y
         val_set_nn_torch = TrainDelayDataset(val_set_nn_x, val_set_nn_y)
         train_loader = DataLoader(train_set_nn_torch, batch_size=batch_size, shuffle=True)
         test_loader = DataLoader(val_set_nn_torch, batch_size=batch_size, shuffle=False)
-        losses, test_losses = train_model(model, epochs, train_loader, test_loader, criterion)
-
-        plot_losses(losses, test_losses, "aleatoric_nn")
-
-        torch.save(model.state_dict(), os.path.join("trained_models", "aleatoric_nn"))
+        train_model(model, epochs, train_loader, test_loader, criterion, name="nn_aleatoric")
     else:
-        model.load_state_dict(torch.load(os.path.join("trained_models", load_model, "aleatoric_nn")))
+        model.load_state_dict(torch.load(os.path.join("trained_models", load_model, "nn_aleatoric")))
 
     # predict
+    model.eval()
     pred = model(torch.from_numpy(val_set_nn_x).float())
 
     unc = pred[:, 1].detach().numpy()  # sigma
@@ -150,12 +163,10 @@ def fit_mlp_test_time_dropout(
         val_set_nn_torch = TrainDelayDataset(val_set_nn_x, val_set_nn_y)
         train_loader = DataLoader(train_set_nn_torch, batch_size=batch_size, shuffle=True)
         test_loader = DataLoader(val_set_nn_torch, batch_size=batch_size, shuffle=False)
-        losses, test_losses = train_model(model, epochs, train_loader, test_loader, criterion)
-        plot_losses(losses, test_losses, "dropout_nn")
-        torch.save(model.state_dict(), os.path.join("trained_models", "dropout_nn"))
+        train_model(model, epochs, train_loader, test_loader, criterion, name="nn_dropout")
     else:
-        model.load_state_dict(torch.load(os.path.join("trained_models", load_model, "dropout_nn")))
-
+        model.load_state_dict(torch.load(os.path.join("trained_models", load_model, "nn_dropout")))
+        model.train()  # Ensure that dropout is switched on
     df_ttd = pd.DataFrame()
     for i in range(10):
         pred = model(torch.from_numpy(val_set_nn_x).float())
