@@ -12,6 +12,9 @@ if __name__ == "__main__":
     # remove outliers
     featurizer.remove_outliers(outlier_cutoff=OUTLIER_CUTOFF)
 
+    # obs count feature
+    featurizer.transform_obs_count()
+
     # add previous delay features
     featurizer.delay_at_preceding_obs(order=order)
     featurizer.historic_delay_at_obs(order=order)

@@ -84,14 +84,14 @@ def get_features(columns, version=2):
     if version == 1:
         use_features = [
             "delay_dep",
-            "obs_count",
-            "time_to_end_real",
-            "time_to_end_plan",
+            "feat_obs_count",
+            "feat_time_to_end_real",
+            "feat_time_to_end_plan",
             "feat_weather_tavg",
             "feat_weather_tmin",
             "feat_weather_tmax",
             "feat_weather_prcp",
-            "feat_weather_wdir",
+            # "feat_weather_wdir",
             "feat_weather_wspd",
             "feat_weather_wpgt",
             "feat_weather_pres",  # weather features

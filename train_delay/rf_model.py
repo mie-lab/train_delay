@@ -2,6 +2,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 import numpy as np
 import os
+import json
 import pickle
 
 
@@ -15,7 +16,7 @@ def fit_rf_model(
     else:
         # TUNING
         best_regr, best_performance = None, np.inf
-        for max_depth in [2, 5, 10, 30]:
+        for max_depth in [2, 5, 10, 20, 30]:
             regr = RandomForestRegressor(max_depth=max_depth, random_state=0)
             # fit
             regr.fit(train_set_rf_x, train_set_rf_y)
@@ -37,5 +38,7 @@ def fit_rf_model(
     if use_features is not None:
         print("Most important features:")
         print(np.array(use_features)[np.argsort(regr.feature_importances_)][::-1])
+        with open(os.path.join("trained_models", "rf_feature_importances.json"), "w") as outfile:
+            json.dump(np.array(use_features)[np.argsort(regr.feature_importances_)][::-1].tolist(), outfile)
 
     return rf_pred, rf_unc
