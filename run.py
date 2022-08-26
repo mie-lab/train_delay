@@ -117,6 +117,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--inp_path", type=str, default=os.path.join("data", "data_enriched.csv"))
     parser.add_argument("-m", "--model_dir", default="best_models", type=str, help="name of model directory")
+    parser.add_argument("-v", "--version", default=2, type=int, help="version of feature set")
     args = parser.parse_args()
 
     data = pd.read_csv(args.inp_path)
@@ -125,7 +126,7 @@ if __name__ == "__main__":
     train_set, val_set, test_set = split_train_test(data)  # , save_path="data/data_enriched.csv")
 
     # select suitable features for ML models
-    use_features = get_features(data.columns, version=2)
+    use_features = get_features(data.columns, version=args.version)
 
     # preprocess and dropn the ones with NaN features
     (

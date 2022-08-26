@@ -59,7 +59,8 @@ def attenuation_loss(output, y_true, validate=False):
 
 
 def mse_loss(output, y_true, **kwargs):
-    return torch.mean((output - y_true) ** 2)
+    # assert output[:, 0].size() == y_true.size(), "Size mismatch!"
+    return torch.mean((output[:, 0] - y_true) ** 2)
 
 
 def average_batches(loss, n_average=1000):
@@ -84,6 +85,7 @@ def train_model(model, epochs, train_loader, test_loader, criterion, name="nn"):
             loss = criterion(output, y)
             loss.backward()
             if batch_num == 10:
+                # print(model.linear_3.weight.grad)
                 print("train loss at batch 10:", round(loss.item(), 2))
             if criterion == attenuation_loss:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
