@@ -7,10 +7,16 @@ import pandas as pd
 
 from train_delay.baselines import run_simple_baselines
 from train_delay.metrics import get_metrics
-from train_delay.mlp_model import fit_mlp_aleatoric, fit_mlp_test_time_dropout
-from train_delay.rf_model import fit_rf_model
+from train_delay.mlp_model import test_test_time_dropout, test_aleatoric
+from train_delay.rf_model import test_random_forest
+from train_delay.gaussian_process import test_gaussian_process
 
-MODEL_FUNC_DICT = {"nn_dropout": fit_mlp_test_time_dropout, "nn_aleatoric": fit_mlp_aleatoric, "rf": fit_rf_model}
+MODEL_FUNC_TEST = {
+    "nn_dropout": test_test_time_dropout,
+    "nn_aleatoric": test_aleatoric,
+    "random_forest": test_random_forest,
+    "gaussian_process": test_gaussian_process,
+}
 
 
 def split_train_test(data, ratio=0.8, save_path=None):
@@ -121,6 +127,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     data = pd.read_csv(args.inp_path)
+    os.makedirs(os.path.join("outputs", args.model_dir), exist_ok=True)
 
     # split into train, val and test
     train_set, val_set, test_set = split_train_test(data)  # , save_path="data/data_enriched.csv")
@@ -152,17 +159,19 @@ if __name__ == "__main__":
     # Train MLP with uncertainty
     model_weights = args.model_dir
     # model_weights = None
-    for model_type in ["rf", "nn_aleatoric", "nn_dropout"]:
-        model_func = MODEL_FUNC_DICT[model_type]
+    for model_type in ["random_forest", "nn_aleatoric", "nn_dropout"]:
+        model_func = MODEL_FUNC_TEST[model_type]
 
         print("-------------- ", model_type, "--------------")
-        pred, unc = model_func(
-            train_set_nn_x, train_set_nn_y, test_set_nn_x, test_set_nn_y, dropout_rate=0.5, load_model=model_weights
-        )
+        pred, unc = model_func(model_weights, test_set_nn_x, dropout_rate=0.5)
 
         # plot
         plot_by_obs_count(
-            pred, unc, test_set_nn_y, test_set["obs_count"].values, save_path=os.path.join("outputs", model_type),
+            pred,
+            unc,
+            test_set_nn_y,
+            test_set["obs_count"].values,
+            save_path=os.path.join("outputs", args.model_dir, model_type),
         )
 
         # add to the other metrics
@@ -176,5 +185,5 @@ if __name__ == "__main__":
 
     result_table = pd.DataFrame(res_dict).swapaxes(1, 0).sort_values("MSE")
     print(result_table)
-    result_table.to_csv(os.path.join("outputs", "results_summary.csv"))
+    result_table.to_csv(os.path.join("outputs", args.model_dir, "results_summary.csv"))
 

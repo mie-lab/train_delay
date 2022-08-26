@@ -67,7 +67,25 @@ def average_batches(loss, n_average=1000):
     return np.array(loss)[: -(len(loss) % n_average)].reshape((-1, n_average)).mean(axis=1)
 
 
-def train_model(model, epochs, train_loader, test_loader, criterion, name="nn"):
+def train_model(
+    model,
+    train_set_nn_x,
+    train_set_nn_y,
+    val_set_nn_x,
+    val_set_nn_y,
+    criterion,
+    batch_size=8,
+    epochs=10,
+    save_path=os.path.join("test", "nn"),
+    **kwargs,
+):
+    # create dataset and dataloader
+    train_set_nn_torch = TrainDelayDataset(train_set_nn_x, train_set_nn_y)
+    val_set_nn_torch = TrainDelayDataset(val_set_nn_x, val_set_nn_y)
+    train_loader = DataLoader(train_set_nn_torch, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(val_set_nn_torch, batch_size=batch_size, shuffle=False)
+
+    # init optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
 
     model.train()
@@ -113,14 +131,14 @@ def train_model(model, epochs, train_loader, test_loader, criterion, name="nn"):
         )
         if sum(test_losses) < best_performance:
             best_performance = sum(test_losses)
-            torch.save(model.state_dict(), os.path.join("trained_models", name))
+            torch.save(model.state_dict(), os.path.join("trained_models", save_path))
             print("Saved model")
         # print(
         #     f"\n Epoch {epoch} (median) | TRAIN Loss {round(np.median(losses), 3)} | TEST loss {round(np.median(test_losses), 3)} \n"
         # )
         epoch_test_loss.append(np.mean(test_losses))
         epoch_train_loss.extend(list(average_batches(losses)))
-    plot_losses(epoch_train_loss, epoch_test_loss, name)
+    plot_losses(epoch_train_loss, epoch_test_loss, save_path)
 
 
 def plot_losses(losses, test_losses, name):
@@ -135,20 +153,25 @@ def plot_losses(losses, test_losses, name):
     plt.savefig(os.path.join("trained_models", name + "_losses.png"))
 
 
-def fit_mlp_aleatoric(train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, epochs=1, load_model=None, **kwargs):
+def train_aleatoric(train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, save_path="test", **kwargs):
+    # init model with 2 outputs (mean and std)
     model = TrainDelayMLP(train_set_nn_x.shape[1], 2)
+    criterion = attenuation_loss
+    train_model(
+        model,
+        train_set_nn_x,
+        train_set_nn_y,
+        val_set_nn_x,
+        val_set_nn_y,
+        criterion,
+        save_path=os.path.join(save_path, "nn_aleatoric"),
+        **kwargs,
+    )
 
-    if load_model is None:
-        criterion = attenuation_loss
-        batch_size = 8
-        train_set_nn_torch = TrainDelayDataset(train_set_nn_x, train_set_nn_y)
-        val_set_nn_torch = TrainDelayDataset(val_set_nn_x, val_set_nn_y)
-        train_loader = DataLoader(train_set_nn_torch, batch_size=batch_size, shuffle=True)
-        test_loader = DataLoader(val_set_nn_torch, batch_size=batch_size, shuffle=False)
-        train_model(model, epochs, train_loader, test_loader, criterion, name="nn_aleatoric")
-    else:
-        model.load_state_dict(torch.load(os.path.join("trained_models", load_model, "nn_aleatoric")))
 
+def test_aleatoric(load_model, val_set_nn_x, **kwargs):
+    model = TrainDelayMLP(val_set_nn_x.shape[1], 2)
+    model.load_state_dict(torch.load(os.path.join("trained_models", load_model, "nn_aleatoric")))
     # predict
     model.eval()
     pred = model(torch.from_numpy(val_set_nn_x).float())
@@ -159,23 +182,30 @@ def fit_mlp_aleatoric(train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y
     return pred, np.exp(unc)
 
 
-def fit_mlp_test_time_dropout(
-    train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, epochs=1, dropout_rate=0.3, load_model=None, **kwargs
+def train_test_time_dropout(
+    train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, epochs=1, dropout_rate=0.3, save_path="test", **kwargs
 ):
-
     model = TrainDelayMLP(train_set_nn_x.shape[1], 1, dropout_rate=dropout_rate)
+    criterion = mse_loss
 
-    if load_model is None:
-        criterion = mse_loss
-        batch_size = 8
-        train_set_nn_torch = TrainDelayDataset(train_set_nn_x, train_set_nn_y)
-        val_set_nn_torch = TrainDelayDataset(val_set_nn_x, val_set_nn_y)
-        train_loader = DataLoader(train_set_nn_torch, batch_size=batch_size, shuffle=True)
-        test_loader = DataLoader(val_set_nn_torch, batch_size=batch_size, shuffle=False)
-        train_model(model, epochs, train_loader, test_loader, criterion, name="nn_dropout")
-    else:
-        model.load_state_dict(torch.load(os.path.join("trained_models", load_model, "nn_dropout")))
-        model.train()  # Ensure that dropout is switched on
+    train_model(
+        model,
+        train_set_nn_x,
+        train_set_nn_y,
+        val_set_nn_x,
+        val_set_nn_y,
+        criterion,
+        save_path=os.path.join(save_path, "nn_dropout"),
+        **kwargs,
+    )
+
+
+def test_test_time_dropout(load_model, val_set_nn_x, dropout_rate=0.5, **kwargs):
+    model = TrainDelayMLP(val_set_nn_x.shape[1], 1, dropout_rate=dropout_rate)
+    model.load_state_dict(torch.load(os.path.join("trained_models", load_model, "nn_dropout")))
+    model.train()  # Ensure that dropout is switched on
+
+    # run for 10 times to get different predictions
     df_ttd = pd.DataFrame()
     for i in range(10):
         pred = model(torch.from_numpy(val_set_nn_x).float())
@@ -183,5 +213,4 @@ def fit_mlp_test_time_dropout(
 
     pred = np.mean(np.array(df_ttd), axis=1)
     unc = np.std(np.array(df_ttd), axis=1)
-
     return pred, unc
