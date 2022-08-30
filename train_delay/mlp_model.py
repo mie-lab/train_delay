@@ -247,7 +247,7 @@ def test_unc_nn(load_model, val_set_nn_x, dropout_rate=0.5, nr_passes=10, **kwar
     for i in range(nr_passes):
         pred = model(torch.from_numpy(val_set_nn_x).float())
         results[i, 0, :] = pred[:, 0].detach().numpy().squeeze()
-        results[i, 1, :] = pred[:, 1].detach().numpy().squeeze()
+        results[i, 1, :] = np.exp(pred[:, 1].detach().numpy().squeeze())
 
     pred = np.mean(results[:, 0], axis=0)
     dropout_unc = np.std(results[:, 0], axis=0)
