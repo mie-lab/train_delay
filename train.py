@@ -4,7 +4,7 @@ import argparse
 import warnings
 
 from run import get_features, split_train_test, get_train_val_test
-from train_delay.mlp_model import train_test_time_dropout, train_aleatoric
+from train_delay.mlp_model import train_test_time_dropout, train_aleatoric, train_unc_nn
 from train_delay.rf_model import train_random_forest
 from train_delay.gaussian_process import train_gaussian_process
 
@@ -13,6 +13,7 @@ MODEL_FUNC_TRAIN = {
     "nn_aleatoric": train_aleatoric,
     "random_forest": train_random_forest,
     "gaussian_process": train_gaussian_process,
+    "nn": train_unc_nn,
 }
 
 if __name__ == "__main__":
@@ -23,7 +24,7 @@ if __name__ == "__main__":
         "--method",
         default="random_forest",
         type=str,
-        help="one of random_forest, gaussian_process, nn_aleatoric or nn_dropout",
+        help="one of random_forest, gaussian_process, nn, nn_aleatoric or nn_dropout",
     )
     parser.add_argument("-e", "--epochs", default=10, type=int, help="number of epochs")
     parser.add_argument("-o", "--out_dir", default="test", type=str, help="Where to save model")

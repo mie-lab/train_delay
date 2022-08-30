@@ -214,3 +214,44 @@ def test_test_time_dropout(load_model, val_set_nn_x, dropout_rate=0.5, **kwargs)
     pred = np.mean(np.array(df_ttd), axis=1)
     unc = np.std(np.array(df_ttd), axis=1)
     return pred, unc
+
+
+def train_unc_nn(
+    train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, dropout_rate=0.5, save_path="test", **kwargs
+):
+    """both aleatoric and epistemic uncertainty"""
+    # init model with 2 outputs (mean and std)
+    model = TrainDelayMLP(train_set_nn_x.shape[1], 2, dropout_rate=dropout_rate)
+    criterion = attenuation_loss
+    train_model(
+        model,
+        train_set_nn_x,
+        train_set_nn_y,
+        val_set_nn_x,
+        val_set_nn_y,
+        criterion,
+        save_path=os.path.join(save_path, "nn"),
+        **kwargs,
+    )
+
+
+def test_unc_nn(load_model, val_set_nn_x, dropout_rate=0.5, nr_passes=10, **kwargs):
+    """both aleatoric and epistemic uncertainty"""
+    # init model with 2 outputs (mean and std)
+    model = TrainDelayMLP(val_set_nn_x.shape[1], 2, dropout_rate=dropout_rate)
+    model.load_state_dict(torch.load(os.path.join("trained_models", load_model, "nn")))
+    model.train()  # Ensure that dropout is switched on
+
+    # run for nr_passes times to get different predictions
+    results = np.zeros((nr_passes, 2, len(val_set_nn_x)))
+    for i in range(nr_passes):
+        pred = model(torch.from_numpy(val_set_nn_x).float())
+        results[i, 0, :] = pred[:, 0].detach().numpy().squeeze()
+        results[i, 1, :] = pred[:, 1].detach().numpy().squeeze()
+
+    pred = np.mean(results[:, 0], axis=0)
+    dropout_unc = np.std(results[:, 0], axis=0)
+    aleatoric_unc = np.mean(results[:, 1], axis=0)
+
+    return pred, dropout_unc + aleatoric_unc
+

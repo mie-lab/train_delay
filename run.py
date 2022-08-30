@@ -7,7 +7,7 @@ import pandas as pd
 
 from train_delay.baselines import run_simple_baselines
 from train_delay.metrics import get_metrics
-from train_delay.mlp_model import test_test_time_dropout, test_aleatoric
+from train_delay.mlp_model import test_test_time_dropout, test_aleatoric, test_unc_nn
 from train_delay.rf_model import test_random_forest
 from train_delay.gaussian_process import test_gaussian_process
 
@@ -16,6 +16,7 @@ MODEL_FUNC_TEST = {
     "nn_aleatoric": test_aleatoric,
     "random_forest": test_random_forest,
     "gaussian_process": test_gaussian_process,
+    "nn": test_unc_nn,
 }
 
 
@@ -156,10 +157,17 @@ if __name__ == "__main__":
 
     print("DATA SHAPES", train_set_nn_x.shape, train_set_nn_y.shape, test_set_nn_x.shape, test_set_nn_y.shape)
 
-    # Train MLP with uncertainty
+    # Test models
     model_weights = args.model_dir
-    # model_weights = None
-    for model_type in ["random_forest", "nn_aleatoric", "nn_dropout", "gaussian_process"]:
+    for model_type in ["nn", "random_forest", "nn_aleatoric", "nn_dropout", "gaussian_process"]:
+        # check whether pretrained model exists
+        trained_model_exists = os.path.exists(
+            os.path.join("trained_models", args.model_dir, model_type)
+        ) or os.path.exists(os.path.join("trained_models", args.model_dir, model_type + ".p"))
+        if not trained_model_exists:
+            print(f"Skipping {model_type} because no pretrained model available.")
+            continue
+        # get the correct test function
         model_func = MODEL_FUNC_TEST[model_type]
 
         print("-------------- ", model_type, "--------------")
