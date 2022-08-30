@@ -5,7 +5,7 @@ import os
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from train_delay.baselines import run_simple_baselines
+from train_delay.baselines import run_simple_baselines, simple_avg_bl
 from train_delay.metrics import get_metrics
 from train_delay.mlp_model import test_test_time_dropout, test_aleatoric, test_unc_nn
 from train_delay.rf_model import test_random_forest
@@ -155,11 +155,14 @@ if __name__ == "__main__":
     print("Intermediate results of baselines:")
     print(pd.DataFrame(res_dict).swapaxes(1, 0).sort_values("MSE"))
 
+    # get baseline uncertainties (std of final delay per train ID)
+    unc_bl = simple_avg_bl(train_set, test_set, agg_func="mean")["unc"].values
+
     print("DATA SHAPES", train_set_nn_x.shape, train_set_nn_y.shape, test_set_nn_x.shape, test_set_nn_y.shape)
 
     # Test models
     model_weights = args.model_dir
-    for model_type in ["nn", "random_forest", "nn_aleatoric", "nn_dropout", "gaussian_process"]:
+    for model_type in ["nn", "random_forest", "nn_aleatoric", "nn_dropout"]:
         # check whether pretrained model exists
         trained_model_exists = os.path.exists(
             os.path.join("trained_models", args.model_dir, model_type)
@@ -183,15 +186,17 @@ if __name__ == "__main__":
         )
 
         # add to the other metrics
-        temp_df = pd.DataFrame(pred, columns=["pred"])
-        temp_df["final_delay"] = test_set_nn_y
-        temp_df["unc"] = unc
-        metrics_nn_torch = get_metrics(temp_df[["pred", "final_delay", "unc"]], model_type)
-        # save in general dictionary
-        print("metrics", metrics_nn_torch[model_type])
-        res_dict[model_type] = metrics_nn_torch[model_type]
+        for model_type_name, unc_est in zip([model_type, model_type + "_unc_bl"], [unc, unc_bl]):
+            temp_df = pd.DataFrame(pred, columns=["pred"])
+            temp_df["final_delay"] = test_set_nn_y
+            temp_df["unc"] = unc_est
+            # get metrics and save in final dictionary
+            res_dict[model_type_name] = get_metrics(temp_df[["pred", "final_delay", "unc"]], model_type_name)[
+                model_type_name
+            ]
+            print("metrics", res_dict[model_type_name])
 
-    result_table = pd.DataFrame(res_dict).swapaxes(1, 0).sort_values("MSE")
+    result_table = pd.DataFrame(res_dict).swapaxes(1, 0).sort_values(["MSE", "mean_pi_width"]).round(3)
     print(result_table)
     result_table.to_csv(os.path.join("outputs", args.model_dir, "results_summary.csv"))
 
