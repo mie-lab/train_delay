@@ -32,8 +32,12 @@ class Features:
             self.data[timevar] = pd.to_datetime(self.data[timevar])
 
         # create difference
-        self.data["feat_time_to_end_real"] = (self.data["trip_final_arr_plan"] - self.data["dep_real"]).dt.seconds
-        self.data["feat_time_to_end_plan"] = (self.data["trip_final_arr_plan"] - self.data["dep_plan"]).dt.seconds
+        self.data["feat_time_to_end_real"] = (
+            self.data["trip_final_arr_plan"] - self.data["dep_real"]
+        ).dt.total_seconds()
+        self.data["feat_time_to_end_plan"] = (
+            self.data["trip_final_arr_plan"] - self.data["dep_plan"]
+        ).dt.total_seconds()
 
     def remove_outliers(self, outlier_cutoff=5):
         # remove outliers
@@ -72,7 +76,7 @@ class Features:
                 return pd.NA
 
         if weather_path is not None:
-            weather_data = pd.read_csv(weather_path).set_index(["train_id", "obs_count"])
+            weather_data = pd.read_csv(weather_path).set_index(["day", "obs_point_id"])
             # Check how many nans there are per weather feature and remove the ones with too many
             weather_feats = weather_data.columns
             nr_nans = pd.isna(weather_data[weather_feats]).sum()
@@ -80,7 +84,7 @@ class Features:
             weather_feats = [f for f in weather_feats if f not in cols_too_many_nans]
             # merge with data
             self.data = self.data.merge(
-                weather_data[weather_feats], how="left", left_on=["train_id", "obs_count"], right_index=True
+                weather_data[weather_feats], how="left", left_on=["day", "obs_point_id"], right_index=True
             )
         else:
             weather_input = self.data[["lng", "lat", "dep_real"]].dropna()

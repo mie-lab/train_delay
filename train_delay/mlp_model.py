@@ -183,7 +183,7 @@ def test_aleatoric(load_model, val_set_nn_x, **kwargs):
 
 
 def train_test_time_dropout(
-    train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, epochs=1, dropout_rate=0.3, save_path="test", **kwargs
+    train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, dropout_rate=0.3, save_path="test", **kwargs
 ):
     model = TrainDelayMLP(train_set_nn_x.shape[1], 1, dropout_rate=dropout_rate)
     criterion = mse_loss

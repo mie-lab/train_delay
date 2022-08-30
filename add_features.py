@@ -12,6 +12,9 @@ if __name__ == "__main__":
     # remove outliers
     featurizer.remove_outliers(outlier_cutoff=OUTLIER_CUTOFF)
 
+    # add weather
+    featurizer.add_weather(weather_path=os.path.join("data", "weather_data.csv"))
+
     # obs count feature
     featurizer.transform_obs_count()
 
@@ -23,9 +26,6 @@ if __name__ == "__main__":
 
     # add delay of surrounding trains
     featurizer.delays_other_trains(order=5, minute_thresh=10)
-
-    # # add weather
-    featurizer.add_weather(weather_path=os.path.join("data", "weather_data.csv"))
 
     # # add train ID as one hot:
     # featurizer.train_id_onehot()

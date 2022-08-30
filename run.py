@@ -123,7 +123,7 @@ def get_features(columns, version=2):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--inp_path", type=str, default=os.path.join("data", "data_enriched.csv"))
-    parser.add_argument("-m", "--model_dir", default="best_models", type=str, help="name of model directory")
+    parser.add_argument("-m", "--model_dir", default="test", type=str, help="name of model directory")
     parser.add_argument("-v", "--version", default=2, type=int, help="version of feature set")
     args = parser.parse_args()
 
@@ -176,14 +176,15 @@ if __name__ == "__main__":
         print("-------------- ", model_type, "--------------")
         pred, unc = model_func(model_weights, test_set_nn_x, dropout_rate=0.5)
 
-        # plot
-        plot_by_obs_count(
-            pred,
-            unc,
-            test_set_nn_y,
-            test_set["obs_count"].values,
-            save_path=os.path.join("outputs", args.model_dir, model_type),
-        )
+        # plot results by obs count
+        vals_obscount = (test_set["feat_obs_count"].values * 100).astype(int)  # use 100 bins of relative obs point
+        save_plot_obscount = os.path.join("outputs", args.model_dir, model_type + "_obscount")
+        plot_by_obs_count(pred, unc, test_set_nn_y, vals_obscount, save_path=save_plot_obscount)
+
+        # plot results by time from end
+        vals_obscount = (test_set["feat_time_to_end_plan"].values / 100).astype(int) # ca 10000 - 60000 --> 60 bins
+        save_plot_obscount = os.path.join("outputs", args.model_dir, model_type + "_plannedtimetoend")
+        plot_by_obs_count(pred, unc, test_set_nn_y, vals_obscount, save_path=save_plot_obscount)
 
         # add to the other metrics
         for model_type_name, unc_est in zip([model_type, model_type + "_unc_bl"], [unc, unc_bl]):
