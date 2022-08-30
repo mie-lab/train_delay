@@ -159,7 +159,7 @@ if __name__ == "__main__":
     # Train MLP with uncertainty
     model_weights = args.model_dir
     # model_weights = None
-    for model_type in ["random_forest", "nn_aleatoric", "nn_dropout"]:
+    for model_type in ["random_forest", "nn_aleatoric", "nn_dropout", "gaussian_process"]:
         model_func = MODEL_FUNC_TEST[model_type]
 
         print("-------------- ", model_type, "--------------")
