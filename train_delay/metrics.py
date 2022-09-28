@@ -1,6 +1,6 @@
 import numpy as np
 import sklearn.metrics as me
-from scipy.stats import pearsonr, spearmanr
+from scipy.stats import pearsonr, spearmanr, norm
 
 
 def get_metrics(pred_and_unc, name="model"):
@@ -17,6 +17,16 @@ def get_metrics(pred_and_unc, name="model"):
         print("Correlation mse & unc: ", pearsonr(unc, rmse ** 2)[0])
         print("Correlation rmse & unc: ", pearsonr(unc, rmse)[0])
         print("Spearman: ", spearmanr(unc, rmse)[0])
+        # negative log likelihood:
+        nll = []
+        for _, row in pred_and_unc.iterrows():
+            #     print(type(row["pred_mean"]))
+            prob = norm.pdf(row["final_delay"], row["pred"], row["unc"])
+            nll.append(prob)
+        nll = -1 * np.log(np.array(nll))
+        res_dict[name]["nll"] = np.mean(nll)
+        # store mean uncertainty to check the nll stuff
+        res_dict[name]["mean_unc"] = np.mean(unc)
         # correlations
         res_dict[name]["spearman_r"] = spearmanr(unc, rmse)[0]
         res_dict[name]["pearsonr"] = pearsonr(unc, rmse)[0]

@@ -1,4 +1,5 @@
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.tree import DecisionTreeRegressor
 from sklearn.metrics import mean_squared_error
 import numpy as np
 import os
@@ -44,3 +45,14 @@ def test_random_forest(load_model, val_set_rf_x, **kwargs):
     rf_pred = np.mean(per_tree_pred, axis=0)
 
     return rf_pred, rf_unc
+
+
+def rf_overfit(train_set_rf_x, train_set_rf_y, val_set_rf_x, val_set_rf_y, **kwargs):
+    regr = DecisionTreeRegressor(max_depth=None, random_state=0)
+    # fit
+    regr.fit(train_set_rf_x, train_set_rf_y)
+    # train performance
+    train_pred = regr.predict(train_set_rf_x)
+    # pred = regr.predict(val_set_rf_x)
+    mse = mean_squared_error(train_pred, train_set_rf_y)
+    print("MSE overfit: ", mse)

@@ -8,6 +8,7 @@ import pandas as pd
 from train_delay.baselines import run_simple_baselines, simple_avg_bl
 from train_delay.metrics import get_metrics
 from train_delay.mlp_model import test_test_time_dropout, test_aleatoric, test_unc_nn
+from train_delay.ngboost_model import test_ngboost
 from train_delay.rf_model import test_random_forest
 from train_delay.gaussian_process import test_gaussian_process
 
@@ -17,6 +18,7 @@ MODEL_FUNC_TEST = {
     "random_forest": test_random_forest,
     "gaussian_process": test_gaussian_process,
     "nn": test_unc_nn,
+    "ngb": test_ngboost,
 }
 
 
@@ -162,7 +164,7 @@ if __name__ == "__main__":
 
     # Test models
     model_weights = args.model_dir
-    for model_type in ["nn", "random_forest", "nn_aleatoric", "nn_dropout"]:
+    for model_type in ["ngb", "nn", "random_forest", "nn_aleatoric", "nn_dropout"]:
         # check whether pretrained model exists
         trained_model_exists = os.path.exists(
             os.path.join("trained_models", args.model_dir, model_type)
@@ -182,7 +184,7 @@ if __name__ == "__main__":
         plot_by_obs_count(pred, unc, test_set_nn_y, vals_obscount, save_path=save_plot_obscount)
 
         # plot results by time from end
-        vals_obscount = (test_set["feat_time_to_end_plan"].values / 100).astype(int) # ca 10000 - 60000 --> 60 bins
+        vals_obscount = (test_set["feat_time_to_end_plan"].values / 100).astype(int)  # ca 10000 - 60000 --> 60 bins
         save_plot_obscount = os.path.join("outputs", args.model_dir, model_type + "_plannedtimetoend")
         plot_by_obs_count(pred, unc, test_set_nn_y, vals_obscount, save_path=save_plot_obscount)
 
