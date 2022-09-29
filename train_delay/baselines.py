@@ -24,14 +24,14 @@ def run_simple_baselines(train_set, val_set):
     pred_overall_avg["unc"] = train_set["final_delay"].std()
     metrics_pred_overall_avg = get_metrics(pred_overall_avg, "overall avg")
 
-    # KNN
-    pred_knn_bl = knn_weighted(train_set, val_set)
-    metrics_pred_knn_bl = get_metrics(pred_knn_bl[["pred", "final_delay"]], "knn")
+    # # KNN
+    # pred_knn_bl = knn_weighted(train_set, val_set)
+    # metrics_pred_knn_bl = get_metrics(pred_knn_bl[["pred", "final_delay"]], "knn")
 
     # prepare output
     collection_of_results = [
         metrics_pred_random_model,
-        metrics_pred_knn_bl,
+        # metrics_pred_knn_bl,
         metrics_pred_simple_avg,
         metrics_pred_simple_median,
         metrics_pred_overall_avg,
@@ -60,6 +60,22 @@ def simple_avg_bl(train_data, test_data, agg_func="mean"):
         output_pred_df.loc[output_pred_df["train_id_daily"] == train_id, "pred"] = avg_delay
         output_pred_df.loc[output_pred_df["train_id_daily"] == train_id, "unc"] = simple_unc
     return output_pred_df
+
+
+def simple_median_bl(train_data, test_data, **kwargs):
+    output_pred_df = simple_avg_bl(train_data, test_data, agg_func="median")
+    return output_pred_df["pred"].values, output_pred_df["unc"].values
+
+
+def simple_mean_bl(train_data, test_data, **kwargs):
+    output_pred_df = simple_avg_bl(train_data, test_data, agg_func="mean")
+    return output_pred_df["pred"].values, output_pred_df["unc"].values
+
+
+def overall_avg(train_data, test_data, **kwargs):
+    pred = np.zeros(len(test_data)) + train_data["final_delay"].mean()
+    unc = np.zeros(len(test_data)) + train_data["final_delay"].std()
+    return pred, unc
 
 
 def knn_weighted(train_data, test_data):

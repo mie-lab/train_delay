@@ -3,45 +3,45 @@ import sklearn.metrics as me
 from scipy.stats import pearsonr, spearmanr, norm
 
 
-def get_metrics(pred_and_unc, name="model"):
-    print(name, "NaNs in predictions (during get_metrics):", 1 - len(pred_and_unc.dropna()) / len(pred_and_unc))
-    pred_and_unc = pred_and_unc.dropna()
+def get_metrics(pred_and_unc, save_path=None):
+    assert len(pred_and_unc.dropna()) == len(pred_and_unc), "Error: NaNs in predictions"
+    # print(name, "NaNs in predictions (during get_metrics):", 1 - len(pred_and_unc.dropna()) / len(pred_and_unc))
     pred = pred_and_unc["pred"].values
     gt = pred_and_unc["final_delay"].values
-    res_dict = {name: {"MSE": me.mean_squared_error(pred, gt), "MAE": me.mean_absolute_error(pred, gt)}}
+    # init res dict
+    res_dict_model = {"MSE": me.mean_squared_error(pred, gt), "MAE": me.mean_absolute_error(pred, gt)}
     # -------- UNCERTAINTY metrics --------
-    if "unc" in pred_and_unc.columns:
-        # compute rmse for correlation metrics
-        rmse = np.sqrt((pred - gt) ** 2)
-        unc = pred_and_unc["unc"].values
-        print("Correlation mse & unc: ", pearsonr(unc, rmse ** 2)[0])
-        print("Correlation rmse & unc: ", pearsonr(unc, rmse)[0])
-        print("Spearman: ", spearmanr(unc, rmse)[0])
-        # negative log likelihood:
-        nll = []
-        for _, row in pred_and_unc.iterrows():
-            #     print(type(row["pred_mean"]))
-            prob = norm.pdf(row["final_delay"], row["pred"], row["unc"])
-            nll.append(prob)
-        nll = -1 * np.log(np.array(nll))
-        res_dict[name]["nll"] = np.mean(nll)
-        # store mean uncertainty to check the nll stuff
-        res_dict[name]["mean_unc"] = np.mean(unc)
-        # correlations
-        res_dict[name]["spearman_r"] = spearmanr(unc, rmse)[0]
-        res_dict[name]["pearsonr"] = pearsonr(unc, rmse)[0]
-        # PI
-        # devide into val and test for prediction intervals
-        # TODO: should take actual val set or train set instead
-        interval_val_set = pred_and_unc[: len(pred_and_unc) // 2]
-        interval_test_set = pred_and_unc[len(pred_and_unc) // 2 :]
-        quantiles = calibrate_pi(
-            interval_val_set["final_delay"].values, interval_val_set["pred"].values, interval_val_set["unc"].values
-        )
-        intervals = get_intervals(interval_test_set["pred"].values, interval_test_set["unc"].values, quantiles)
-        res_dict[name]["coverage"] = coverage(intervals, interval_test_set["final_delay"].values)
-        res_dict[name]["mean_pi_width"] = mean_pi_width(intervals)
-    return res_dict
+    # compute rmse for correlation metrics
+    rmse = np.sqrt((pred - gt) ** 2)
+    unc = pred_and_unc["unc"].values
+    print("Correlation mse & unc: ", pearsonr(unc, rmse ** 2)[0])
+    print("Correlation rmse & unc: ", pearsonr(unc, rmse)[0])
+    print("Spearman: ", spearmanr(unc, rmse)[0])
+    # negative log likelihood:
+    res_dict_model["nll"] = np.mean(pred_and_unc["nll"])
+    # store mean uncertainty to check the nll stuff
+    res_dict_model["mean_unc"] = np.mean(unc)
+    # correlations
+    res_dict_model["spearman_r"] = spearmanr(unc, rmse)[0]
+    res_dict_model["pearsonr"] = pearsonr(unc, rmse)[0]
+    # PI
+    # devide into val and test for prediction intervals
+    res_dict_model["coverage"] = coverage(pred_and_unc)
+    res_dict_model["mean_pi_width"] = mean_pi_width(pred_and_unc)
+    if save_path is not None:
+        pred_and_unc.to_csv(save_path + "_res.csv", index=False)
+    return res_dict_model
+
+
+def add_nll_metric(res_df):
+    nll = []
+    for _, row in res_df.iterrows():
+        #     print(type(row["pred_mean"]))
+        prob = norm.pdf(row["final_delay"], row["pred"], row["unc"])
+        nll.append(prob)
+    nll = -1 * np.log(np.array(nll))
+    res_df["nll"] = nll
+    return res_df
 
 
 def calibrate_pi(gt, pred, unc, alpha: float = 0.1):
@@ -56,12 +56,12 @@ def get_intervals(pred, unc, quantiles):
     return np.stack(((pred - unc * quantiles), (pred + unc * quantiles)), axis=1)
 
 
-def coverage(intervals, gt):
-    greater_lower_bound = gt >= intervals[:, 0]
-    smaller_upper_bound = gt <= intervals[:, 1]
-    coverage = np.sum(greater_lower_bound & smaller_upper_bound) / len(gt)
+def coverage(res_df):
+    greater_lower_bound = res_df["final_delay"] >= res_df["interval_low_bound"]
+    smaller_upper_bound = res_df["final_delay"] <= res_df["interval_high_bound"]
+    coverage = np.sum(greater_lower_bound & smaller_upper_bound) / len(res_df)
     return coverage
 
 
-def mean_pi_width(intervals):
-    return np.mean(intervals[:, 1] - intervals[:, 0])
+def mean_pi_width(res_df):
+    return np.mean(res_df["interval_high_bound"] - res_df["interval_low_bound"])
