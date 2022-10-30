@@ -99,10 +99,10 @@ class Features:
         self.data[f"feat_{col_name}_day"] = self.data[col_name].apply(lambda x: x.dayofweek if ~pd.isna(x) else pd.NA)
 
         for time_range, period in zip(["hour", "day"], [24, 7]):
-            to_sin = lambda x: np.sin(x / period * 2 * np.pi if not pd.isna(x) else pd.NA)
-            to_cos = lambda x: np.cos(x / period * 2 * np.pi if not pd.isna(x) else pd.NA)
-            self.data[f"feat_{col_name}_{time_range}_sin"] = self.data[f"feat_{col_name}_hour"].apply(to_sin)
-            self.data[f"feat_{col_name}_{time_range}_cos"] = self.data[f"feat_{col_name}_hour"].apply(to_cos)
+            to_sin = lambda x: np.sin(x / period * 2 * np.pi) if not pd.isna(x) else pd.NA
+            to_cos = lambda x: np.cos(x / period * 2 * np.pi) if not pd.isna(x) else pd.NA
+            self.data[f"feat_{col_name}_{time_range}_sin"] = self.data[f"feat_{col_name}_{time_range}"].apply(to_sin)
+            self.data[f"feat_{col_name}_{time_range}_cos"] = self.data[f"feat_{col_name}_{time_range}"].apply(to_cos)
 
     def delay_at_preceding_obs(self, order=3):
         """Delay at the previous <order> observations (of the same train on the same day)"""

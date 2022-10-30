@@ -34,13 +34,38 @@ def get_metrics(pred_and_unc, save_path=None):
 
 
 def add_nll_metric(res_df):
-    nll = []
+    nll, likelihood_30, likelihood_45 = [], [], []
     for _, row in res_df.iterrows():
         #     print(type(row["pred_mean"]))
         prob = norm.pdf(row["final_delay"], row["pred"], row["unc"])
+        # Area under the PDF with +- 30s around ground truth
+        l_30 = norm.cdf(row["final_delay"] + 0.5, row["pred"], row["unc"]) - norm.cdf(
+            row["final_delay"] - 0.5, row["pred"], row["unc"]
+        )
+        # Area under the PDF with +- 45s around ground truth
+        l_45 = norm.cdf(row["final_delay"] + 0.75, row["pred"], row["unc"]) - norm.cdf(
+            row["final_delay"] - 0.75, row["pred"], row["unc"]
+        )
+        likelihood_30.append(l_30)
+        likelihood_45.append(l_45)
         nll.append(prob)
+    res_df["my_likelihood"] = nll
+    res_df["Likely1"] = likelihood_30
+    res_df["Likely2"] = likelihood_45
     nll = -1 * np.log(np.array(nll))
     res_df["nll"] = nll
+    return res_df
+
+
+def add_metrics_in_sec(res_df):
+    # MAE
+    res_df["MAE_min"] = res_df["MAE"].copy()
+    res_df["MAE"] = res_df["MAE"] * 60
+    # pi width
+    res_df["pi_width"] = (res_df["interval_high_bound"] - res_df["interval_low_bound"]) * 60
+    # MSE
+    res_df["MSE_min"] = res_df["MSE"].copy()
+    res_df["MSE"] = (res_df["final_delay"] * 60 - res_df["pred"] * 60) ** 2
     return res_df
 
 
@@ -49,11 +74,13 @@ def calibrate_pi(gt, pred, unc, alpha: float = 0.1):
     quant = np.ceil((1 - alpha) * (n + 1)) / n
     # floor because of zero division problems
     unc_floored = np.clip(unc, a_min=1e-4, a_max=None)
-    return np.quantile(np.abs(gt - pred) / unc_floored, quant, axis=0)
+    # q is one scalar value
+    q = np.quantile(np.abs(gt - pred) / unc_floored, quant, axis=0)
+    return q
 
 
-def get_intervals(pred, unc, quantiles):
-    return np.stack(((pred - unc * quantiles), (pred + unc * quantiles)), axis=1)
+def get_intervals(pred, unc, q):
+    return np.stack(((pred - unc * q), (pred + unc * q)), axis=1)
 
 
 def coverage(res_df):
