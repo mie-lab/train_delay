@@ -7,7 +7,15 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from train_delay.baselines import run_simple_baselines, simple_avg_bl, simple_median_bl, simple_mean_bl, overall_avg
-from train_delay.metrics import get_metrics, calibrate_pi, add_nll_metric, get_intervals, add_metrics_in_sec
+from train_delay.metrics import (
+    get_metrics,
+    calibrate_pi,
+    add_nll_metric,
+    get_intervals,
+    add_metrics_in_sec,
+    calibrate_likely,
+    add_likely,
+)
 from train_delay.mlp_model import test_test_time_dropout, test_aleatoric, test_unc_nn
 from train_delay.ngboost_model import test_ngboost
 from train_delay.rf_model import test_random_forest
@@ -263,7 +271,10 @@ if __name__ == "__main__":
                 temp_df["final_delay"] <= temp_df["interval_high_bound"]
             )
             # add nll metric
-            temp_df = add_nll_metric(temp_df)
+            # temp_df = add_nll_metric(temp_df)
+            best_factor = calibrate_likely(val_set_nn_y, pred_val, unc_val)
+            print("Best factor for likelihood", best_factor)
+            temp_df = add_likely(temp_df, factor=best_factor)
             # add metrics in seconds:
             temp_df = add_metrics_in_sec(temp_df)
 

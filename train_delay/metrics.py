@@ -9,7 +9,7 @@ def get_metrics(pred_and_unc, save_path=None):
     pred = pred_and_unc["pred"].values
     gt = pred_and_unc["final_delay"].values
     # init res dict
-    res_dict_model = {"MSE": me.mean_squared_error(pred, gt), "MAE": me.mean_absolute_error(pred, gt)}
+    res_dict_model = {"MSE": pred_and_unc["MSE"].mean(), "MAE": pred_and_unc["MAE"].mean()}
     # -------- UNCERTAINTY metrics --------
     # compute rmse for correlation metrics
     rmse = np.sqrt((pred - gt) ** 2)
@@ -18,43 +18,54 @@ def get_metrics(pred_and_unc, save_path=None):
     print("Correlation rmse & unc: ", pearsonr(unc, rmse)[0])
     print("Spearman: ", spearmanr(unc, rmse)[0])
     # negative log likelihood:
-    res_dict_model["nll"] = np.mean(pred_and_unc["nll"])
+    res_dict_model["Likelihood_30"] = np.mean(pred_and_unc["Likely_30"])
     # store mean uncertainty to check the nll stuff
-    res_dict_model["mean_unc"] = np.mean(unc)
+    res_dict_model["mean_unc"] = np.mean(unc) * 60
     # correlations
     res_dict_model["spearman_r"] = spearmanr(unc, rmse)[0]
     res_dict_model["pearsonr"] = pearsonr(unc, rmse)[0]
     # PI
     # devide into val and test for prediction intervals
     res_dict_model["coverage"] = coverage(pred_and_unc)
-    res_dict_model["mean_pi_width"] = mean_pi_width(pred_and_unc)
+    res_dict_model["mean_pi_width"] = pred_and_unc["pi_width"].mean()
     if save_path is not None:
         pred_and_unc.to_csv(save_path + "_res.csv", index=False)
     return res_dict_model
 
 
 def add_nll_metric(res_df):
-    nll, likelihood_30, likelihood_45 = [], [], []
+    nll = []
     for _, row in res_df.iterrows():
         #     print(type(row["pred_mean"]))
         prob = norm.pdf(row["final_delay"], row["pred"], row["unc"])
         # Area under the PDF with +- 30s around ground truth
-        l_30 = norm.cdf(row["final_delay"] + 0.5, row["pred"], row["unc"]) - norm.cdf(
-            row["final_delay"] - 0.5, row["pred"], row["unc"]
-        )
-        # Area under the PDF with +- 45s around ground truth
-        l_45 = norm.cdf(row["final_delay"] + 0.75, row["pred"], row["unc"]) - norm.cdf(
-            row["final_delay"] - 0.75, row["pred"], row["unc"]
-        )
-        likelihood_30.append(l_30)
-        likelihood_45.append(l_45)
         nll.append(prob)
     res_df["my_likelihood"] = nll
-    res_df["Likely1"] = likelihood_30
-    res_df["Likely2"] = likelihood_45
     nll = -1 * np.log(np.array(nll))
     res_df["nll"] = nll
     return res_df
+
+
+def add_likely(res_df, factor=1, radius=[0.25, 0.5, 0.75]):
+    for r in radius:
+        res_df["Likely_" + str(int(60 * r))] = norm.cdf(
+            res_df["final_delay"] + r, res_df["pred"], res_df["unc"] * factor
+        ) - norm.cdf(res_df["final_delay"] - r, res_df["pred"], res_df["unc"] * factor)
+    return res_df
+
+
+def calibrate_likely(val_gt, val_pred, val_unc, radius=0.25):
+    best_factor, best_median = 1, 0
+    for factor in np.arange(0.1, 2.1, 0.1):
+        val_unc_scaled = val_unc * factor
+        #     row["unc_scaled"] = row["unc"]**2
+        likelyhood = norm.cdf(val_gt + radius, val_pred, val_unc_scaled) - norm.cdf(
+            val_gt - radius, val_pred, val_unc_scaled
+        )
+        if np.median(likelyhood) > best_median:
+            best_factor = factor
+            best_median = np.median(likelyhood)
+    return best_factor
 
 
 def add_metrics_in_sec(res_df):
