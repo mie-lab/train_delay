@@ -4,7 +4,7 @@ from scipy.stats import pearsonr, spearmanr, norm
 
 
 def get_metrics(pred_and_unc, save_path=None):
-    assert len(pred_and_unc.dropna()) == len(pred_and_unc), "Error: NaNs in predictions"
+    assert len(pred_and_unc[["pred", "unc"]].dropna()) == len(pred_and_unc), "Error: NaNs in predictions"
     # print(name, "NaNs in predictions (during get_metrics):", 1 - len(pred_and_unc.dropna()) / len(pred_and_unc))
     pred = pred_and_unc["pred"].values
     gt = pred_and_unc["final_delay"].values

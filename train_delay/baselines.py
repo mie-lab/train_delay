@@ -67,6 +67,10 @@ def simple_median_bl(train_data, test_data, **kwargs):
     return output_pred_df["pred"].values, output_pred_df["unc"].values
 
 
+def simple_current_delay_bl(train_data, test_data):
+    return test_data["delay_dep"].values, np.ones(len(test_data))
+
+
 def simple_mean_bl(train_data, test_data, **kwargs):
     output_pred_df = simple_avg_bl(train_data, test_data, agg_func="mean")
     return output_pred_df["pred"].values, output_pred_df["unc"].values

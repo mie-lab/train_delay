@@ -6,7 +6,7 @@ import os
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from train_delay.baselines import run_simple_baselines, simple_avg_bl, simple_median_bl, simple_mean_bl, overall_avg
+from train_delay.baselines import simple_current_delay_bl, simple_median_bl, simple_mean_bl, overall_avg
 from train_delay.metrics import (
     get_metrics,
     calibrate_pi,
@@ -31,6 +31,7 @@ MODEL_FUNC_TEST = {
     "simple_median": simple_median_bl,
     "simple_mean": simple_mean_bl,
     "simple_avg": overall_avg,
+    "simple_current_delay": simple_current_delay_bl,
 }
 
 SAVE_MODELS = ["nn", "ngb", "simple_median", "random_forest"]
@@ -144,7 +145,9 @@ def get_features(columns, version=2):
     elif version == 3:
         print("Using features that are comparable features to Markov chain")
         feats_necessary = ["delay_dep", "feat_obs_count", "feat_time_to_end_plan", "feat_avg_prev_delay"]
+        # add delay in the past days
         hist_delay = [feat for feat in columns if feat.startswith("feat_delay_day")]
+        # add historic final delay
         hist_final_delay = [feat for feat in columns if feat.startswith("feat_final_delay-day")]
         use_features = feats_necessary + hist_delay + hist_final_delay
         print(use_features)
@@ -205,6 +208,7 @@ if __name__ == "__main__":
     # Test models
     model_weights = args.model_dir
     for model_type in [
+        "simple_current_delay",
         "simple_median",
         "simple_mean",
         "simple_avg",

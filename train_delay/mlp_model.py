@@ -222,6 +222,8 @@ def train_unc_nn(
     """both aleatoric and epistemic uncertainty"""
     # init model with 2 outputs (mean and std)
     model = TrainDelayMLP(train_set_nn_x.shape[1], 2, dropout_rate=dropout_rate)
+    # # to continue training
+    # model.load_state_dict(torch.load(os.path.join("trained_models", save_path, "nn_2")))
     criterion = attenuation_loss
     train_model(
         model,
