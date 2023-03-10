@@ -39,13 +39,15 @@ class Features:
             self.data["trip_final_arr_plan"] - self.data["dep_plan"]
         ).dt.total_seconds()
 
-    def remove_outliers(self, outlier_cutoff=5):
-        # remove outliers
-        print("Number of samples initial", len(self.data))
+    def scale_final_delay(self, outlier_cutoff=5):
+        """If final delay is given in seconds, convert it to minutes. Then, remove all above the cutoff"""
+        if any(self.data["final_delay"] > 60 * 5):
+            # scale the data if they are provided in seconds
+            self.data["final_delay"] = self.data["final_delay"] / 60
+        # remove outliers if necessary
         self.data = self.data[
-            (self.data["final_delay"] > -1 * outlier_cutoff) & (self.data["final_delay"] < outlier_cutoff)
+            (self.data["final_delay"] <= outlier_cutoff) & (self.data["final_delay"] >= -outlier_cutoff)
         ]
-        print("Number of samples after outlier removal", len(self.data))
 
     def transform_obs_count(self):
         # get maximum observation per train ID
@@ -56,7 +58,7 @@ class Features:
         self.data = self.data.merge(max_obs_per_train, how="left", left_on="train_id", right_index=True)
         # feat obs is divided by the maximum
         self.data["feat_obs_count"] = self.data["obs_count"] / self.data["feat_obs_count"]
-        # set the ones of the final observation to NaN! Then it is dropped later
+        # TODO: set the ones of the final observation to NaN? Then they are dropped later
         self.data.loc[self.data["feat_obs_count"] == 1, "feat_obs_count"] = pd.NA
 
     def add_weather(self, weather_path=None):

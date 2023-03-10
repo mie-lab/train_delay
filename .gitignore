@@ -2,9 +2,12 @@
 data/
 outputs/
 trained_models/
+figures/
 *.code-workspace
 .DS_Store
 *ipynb
+*.pptx
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

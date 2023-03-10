@@ -38,19 +38,29 @@ SAVE_MODELS = ["nn", "ngb", "simple_median", "random_forest"]
 
 
 def split_train_test(data, ratio=0.8, save_path=None):
-    # split into train and test by day
-    all_days = data["day"].unique()
-    cutoff = round(len(all_days) * ratio)
-    test_val_cutoff = (len(all_days) - cutoff) // 2 + cutoff
-    train_days, val_days, test_days = all_days[:cutoff], all_days[cutoff:test_val_cutoff], all_days[test_val_cutoff:]
-    print("cuttoff after train:", cutoff, "cutoff after val", test_val_cutoff, "total nr days", len(all_days))
-    out = []
-    for days, split_name in zip([train_days, val_days, test_days], ["train", "val", "test"]):
-        out.append(data[data["day"].isin(days)])
+    if "use" in data.columns:  # case 1: train test split already exists
+        print("Split already exists in dataset")
+        out = []
+        for split_name in ["train", "val", "test"]:
+            out.append(data[data["use"] == split_name])
+    else:
+        # split into train and test by day
+        all_days = data["day"].unique()
+        cutoff = round(len(all_days) * ratio)
+        test_val_cutoff = (len(all_days) - cutoff) // 2 + cutoff
+        train_days, val_days, test_days = (
+            all_days[:cutoff],
+            all_days[cutoff:test_val_cutoff],
+            all_days[test_val_cutoff:],
+        )
+        print("cuttoff after train:", cutoff, "cutoff after val", test_val_cutoff, "total nr days", len(all_days))
+        out = []
+        for days, split_name in zip([train_days, val_days, test_days], ["train", "val", "test"]):
+            out.append(data[data["day"].isin(days)])
+            if save_path is not None:
+                data.loc[data["day"].isin(days), "split"] = split_name
         if save_path is not None:
-            data.loc[data["day"].isin(days), "split"] = split_name
-    if save_path is not None:
-        data.to_csv(save_path, index=False)
+            data.to_csv(save_path, index=False)
     return tuple(out)
 
 
@@ -92,6 +102,17 @@ def get_train_val_test(train_set, val_set, test_set, use_features, training=Fals
     test_set_nn_x = np.array(test_set_x).astype(np.float64)
     test_set_nn_x = (test_set_nn_x - train_mean) / train_std
     test_set_nn_y = np.array(test_set_y.values).astype(float)
+    print(
+        "train x and y",
+        train_set_nn_x.shape,
+        train_set_nn_y.shape,
+        "val x and y",
+        val_set_nn_x.shape,
+        val_set_nn_y.shape,
+        "test x and y",
+        test_set_nn_x.shape,
+        test_set_nn_y.shape,
+    )
     if training:
         return train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y
     else:

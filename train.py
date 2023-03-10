@@ -27,7 +27,7 @@ if __name__ == "__main__":
         "--method",
         default="random_forest",
         type=str,
-        help="one of random_forest, gaussian_process, gfb, nn, nn_aleatoric or nn_dropout",
+        help="one of random_forest, gaussian_process, ngb, nn, nn_aleatoric or nn_dropout",
     )
     parser.add_argument("-e", "--epochs", default=10, type=int, help="number of epochs")
     parser.add_argument("-o", "--out_dir", default="test", type=str, help="Where to save model")
@@ -42,6 +42,10 @@ if __name__ == "__main__":
 
     data = pd.read_csv(args.inp_path)
     data.index.name = "id"
+    # print("changed part")
+    # print(len(data))
+    # data = data[(data["obs_count"] >= 100) & (data["obs_count"] < 120)]
+    # print(len(data))
 
     # split into train, val and test
     train_set, val_set, test_set = split_train_test(data)
