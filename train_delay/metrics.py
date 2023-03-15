@@ -1,51 +1,37 @@
 import numpy as np
 import sklearn.metrics as me
-from scipy.stats import pearsonr, spearmanr, norm
+from scipy.stats import pearsonr, spearmanr, norm, lognorm
+from config import OUTLIER_CUTOFF
 
 
-def get_metrics(pred_and_unc, save_path=None):
-    assert len(pred_and_unc[["pred", "unc"]].dropna()) == len(pred_and_unc), "Error: NaNs in predictions"
-    # print(name, "NaNs in predictions (during get_metrics):", 1 - len(pred_and_unc.dropna()) / len(pred_and_unc))
-    pred = pred_and_unc["pred"].values
-    gt = pred_and_unc["final_delay"].values
-    # init res dict
-    res_dict_model = {"MSE": pred_and_unc["MSE"].mean(), "MAE": pred_and_unc["MAE"].mean()}
-    # -------- UNCERTAINTY metrics --------
-    # compute rmse for correlation metrics
-    rmse = np.sqrt((pred - gt) ** 2)
-    unc = pred_and_unc["unc"].values
-    print("Correlation mse & unc: ", pearsonr(unc, rmse ** 2)[0])
-    print("Correlation rmse & unc: ", pearsonr(unc, rmse)[0])
-    print("Spearman: ", spearmanr(unc, rmse)[0])
-    # negative log likelihood:
-    res_dict_model["Likelihood_30"] = np.mean(pred_and_unc["Likely_30"])
-    # store mean uncertainty to check the nll stuff
-    res_dict_model["mean_unc"] = np.mean(unc) * 60
-    # correlations
-    res_dict_model["spearman_r"] = spearmanr(unc, rmse)[0]
-    res_dict_model["pearsonr"] = pearsonr(unc, rmse)[0]
-    # PI
-    # devide into val and test for prediction intervals
-    res_dict_model["coverage"] = coverage(pred_and_unc)
-    res_dict_model["mean_pi_width"] = pred_and_unc["pi_width"].mean()
+def get_metrics(temp_df, save_path=None):
+    # fill table and convert to seconds
+    temp_df["final_delay"] = temp_df["final_delay"] * 60
+    temp_df["pred"] = temp_df["pred"] * 60
+    temp_df["unc"] = temp_df["unc"] * 60
+    temp_df["MAE"] = np.abs(temp_df["pred"] - temp_df["final_delay"])
+    temp_df["MAE_min"] = temp_df["MAE"] / 60
+    temp_df["MSE"] = (temp_df["pred"] - temp_df["final_delay"]) ** 2
+    temp_df["MSE_min"] = (temp_df["pred"] / 60 - temp_df["final_delay"] / 60) ** 2
+    temp_df["pi_width"] = temp_df["interval_high_bound"] - temp_df["interval_low_bound"]
+
+    model_res_dict = {}
+    model_res_dict["coverage"] = coverage(temp_df)
+
+    # add the average values for these columns
+    cols_to_agg = temp_df[["unc", "pi_width", "MSE", "MAE", "Likely_30", "Likely_45", "Likely_15"]].rename(
+        columns={"pi_width": "mean_pi_width", "unc": "mean_unc"}
+    )
+    model_res_dict.update(cols_to_agg.mean().to_dict())
+
+    model_res_dict["spearman_r"] = spearmanr(temp_df["unc"], np.sqrt(temp_df["MSE"]))[0]
+    model_res_dict["pearsonr"] = pearsonr(temp_df["unc"], np.sqrt(temp_df["MSE"]))[0]
+
     if save_path is not None:
-        pred_and_unc.drop(
+        temp_df.drop(
             ["obs_point_id", "normed_obs_count", "time_to_end_plan", "normed_time_to_end_plan"], axis=1, errors="ignore"
         ).to_csv(save_path + "_res.csv", index=False)
-    return res_dict_model
-
-
-def add_nll_metric(res_df):
-    nll = []
-    for _, row in res_df.iterrows():
-        #     print(type(row["pred_mean"]))
-        prob = norm.pdf(row["final_delay"], row["pred"], row["unc"])
-        # Area under the PDF with +- 30s around ground truth
-        nll.append(prob)
-    res_df["my_likelihood"] = nll
-    nll = -1 * np.log(np.array(nll))
-    res_df["nll"] = nll
-    return res_df
+    return model_res_dict
 
 
 def add_likely(res_df, factor=1, radius=[0.25, 0.5, 0.75]):
@@ -68,18 +54,6 @@ def calibrate_likely(val_gt, val_pred, val_unc, radius=0.25):
             best_factor = factor
             best_median = np.median(likelyhood)
     return best_factor
-
-
-def add_metrics_in_sec(res_df):
-    # MAE
-    res_df["MAE_min"] = res_df["MAE"].copy()
-    res_df["MAE"] = res_df["MAE"] * 60
-    # pi width
-    res_df["pi_width"] = (res_df["interval_high_bound"] - res_df["interval_low_bound"]) * 60
-    # MSE
-    res_df["MSE_min"] = res_df["MSE"].copy()
-    res_df["MSE"] = (res_df["final_delay"] * 60 - res_df["pred"] * 60) ** 2
-    return res_df
 
 
 def calibrate_pi(gt, pred, unc, alpha: float = 0.1):
@@ -105,3 +79,11 @@ def coverage(res_df):
 
 def mean_pi_width(res_df):
     return np.mean(res_df["interval_high_bound"] - res_df["interval_low_bound"])
+
+
+def likelihood_lognormal(temp_df, s, scale, radius=[0.25, 0.5, 0.75]):
+    for r in radius:
+        temp_df["Likely_" + str(int(60 * r))] = lognorm.cdf(
+            temp_df["final_delay"] + OUTLIER_CUTOFF + r, s, scale=scale
+        ) - lognorm.cdf(temp_df["final_delay"] + OUTLIER_CUTOFF - r, s, scale=scale)
+    return temp_df

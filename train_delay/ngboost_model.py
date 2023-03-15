@@ -35,14 +35,18 @@ def train_ngboost_lognormal(
         pickle.dump(ngb, outfile)
 
 
-def test_ngb_lognormal(load_model, val_set_rf_x, **kwargs):
+def test_ngb_lognormal(load_model, val_set_rf_x, return_params=False, **kwargs):
     # load trained model
     with open(os.path.join("trained_models", load_model, "ngb_lognormal.p"), "rb") as infile:
         ngb = pickle.load(infile)
-    ngb_mean_pred = ngb.predict(val_set_rf_x) - OUTLIER_CUTOFF
     # predicted distribution parameters
     ngb_dist_pred = ngb.pred_dist(val_set_rf_x)
-    return ngb_mean_pred, ngb_dist_pred.params["s"], ngb_dist_pred.params["scale"]
+    if return_params:
+        return ngb_dist_pred.params["s"], ngb_dist_pred.params["scale"]
+    else:
+        ngb_mean_pred = ngb.predict(val_set_rf_x) - OUTLIER_CUTOFF
+        ngb_unc = get_unc_lognormal(ngb_dist_pred.params["s"], ngb_dist_pred.params["scale"])
+        return ngb_mean_pred, ngb_unc
 
 
 def test_ngboost(load_model, val_set_rf_x, **kwargs):
@@ -58,13 +62,4 @@ def test_ngboost(load_model, val_set_rf_x, **kwargs):
 def get_unc_lognormal(s, scale):
     return lognorm.ppf(0.7, s, scale=scale) - lognorm.ppf(0.3, s, scale=scale)
 
-
-def likelihood_lognormal(final_delay, s, scale, radius=[0.25, 0.5, 0.75]):
-    out = {}
-    for r in radius:
-        out["Likelihood_" + str(int(60 * r))] = (
-            lognorm.cdf(final_delay + OUTLIER_CUTOFF + r, s, scale=scale)
-            - lognorm.cdf(final_delay + OUTLIER_CUTOFF - r, s, scale=scale)
-        ).mean()
-    return out
 

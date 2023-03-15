@@ -10,15 +10,13 @@ from train_delay.baselines import simple_current_delay_bl, simple_median_bl, sim
 from train_delay.metrics import (
     get_metrics,
     calibrate_pi,
-    add_nll_metric,
     get_intervals,
-    add_metrics_in_sec,
     calibrate_likely,
     add_likely,
-    coverage,
+    likelihood_lognormal,
 )
 from train_delay.mlp_model import test_test_time_dropout, test_aleatoric, test_unc_nn
-from train_delay.ngboost_model import test_ngboost, test_ngb_lognormal, get_unc_lognormal, likelihood_lognormal
+from train_delay.ngboost_model import test_ngboost, test_ngb_lognormal
 from train_delay.rf_model import test_random_forest
 from train_delay.gaussian_process import test_gaussian_process
 
@@ -231,6 +229,7 @@ if __name__ == "__main__":
 
     # get baseline uncertainties (std of final delay per train ID)
     _, unc_bl = simple_mean_bl(train_set, test_set)
+    _, unc_bl_val = simple_mean_bl(train_set, val_set)
 
     print("DATA SHAPES", train_set_nn_x.shape, train_set_nn_y.shape, test_set_nn_x.shape, test_set_nn_y.shape)
     res_dict = {}
@@ -238,48 +237,13 @@ if __name__ == "__main__":
     # Test models
     model_weights = args.model_dir
 
-    # run lognormal in separate part because different
-    if os.path.exists(os.path.join("trained_models", args.model_dir, "ngb_lognormal.p")):
-        pred, s, scale = test_ngb_lognormal(model_weights, test_set_nn_x)
-        pred_sec = pred * 60
-        final_delay = test_set_nn_y * 60
-        # fill datafraem
-        temp_df = basic_df.copy()
-        temp_df["pred"] = pred
-        temp_df["unc"] = get_unc_lognormal(s, scale)
-        temp_df["final_delay"] = final_delay
-
-        # given pred and unc in the dataframe, we can add all other metrics
-        temp_df["MSE"] = (pred_sec - final_delay) ** 2
-        # predict val data and use
-        pred_val, s_val, scale_val = test_ngb_lognormal(model_weights, val_set_nn_x)
-        model_res_dict = {"MAE": np.mean(np.abs(pred_sec - final_delay))}
-        unc_val = get_unc_lognormal(s_val, scale_val)
-        quantiles = calibrate_pi(val_set_nn_y, pred_val * 60, unc_val)
-        intervals = get_intervals(temp_df["pred"].values, temp_df["unc"].values, quantiles)
-        temp_df["pi_width"] = intervals[:, 1] - intervals[:, 0]
-        temp_df["interval_low_bound"] = intervals[:, 0]
-        temp_df["interval_high_bound"] = intervals[:, 1]
-
-        # add to model res dict
-        model_res_dict["coverage"] = coverage(temp_df)
-        cols_to_agg = temp_df[["unc", "pi_width", "MSE"]].rename(
-            columns={"pi_width": "mean_pi_width", "unc": "mean_unc"}
-        )
-        model_res_dict.update(cols_to_agg.mean().to_dict())
-        model_res_dict.update(likelihood_lognormal(final_delay / 60, s, scale))
-        from scipy.stats import spearmanr, pearsonr
-
-        model_res_dict["spearman_r"] = spearmanr(temp_df["unc"], np.sqrt(temp_df["MSE"]))[0]
-        model_res_dict["pearsonr"] = pearsonr(temp_df["unc"], np.sqrt(temp_df["MSE"]))[0]
-        res_dict["ngb_lognormal"] = model_res_dict
-
     for model_type in [
         "simple_current_delay",
         "simple_median",
         "simple_mean",
         "simple_avg",
         "ngb",
+        "ngb_lognormal",
         "nn",
         "random_forest",
         "nn_aleatoric",
@@ -299,49 +263,43 @@ if __name__ == "__main__":
         if "simple" in model_type:
             pred, unc = model_func(train_set, test_set)
         else:
-            pred, unc = model_func(model_weights, test_set_nn_x, dropout_rate=0.5)
-
-        # put results in one df
-        res_df = basic_df.copy()
-        # add results
-        res_df["pred"] = pred
-        res_df["final_delay"] = test_set_nn_y
-        res_df["unc"] = unc
-
-        # add metrics
-        res_df["MSE"] = (res_df["final_delay"] - res_df["pred"]) ** 2
-        res_df["MAE"] = (res_df["final_delay"] - res_df["pred"]).abs()
+            pred, unc = model_func(model_weights, test_set_nn_x, dropout_rate=0.5, return_params=False)
 
         # add to the other metrics
         for model_type_name, unc_est in zip([model_type, model_type + "_unc_bl"], [unc, unc_bl]):
             if "simple" in model_type and "bl" in model_type_name:
                 # only do the bl evaluation for the non-simple models (otherwise same result)
                 continue
-            # COPY FOR SPECIFIC UNC
-            temp_df = res_df.copy()
+
+            # fill the table with our basic information
+            temp_df = basic_df.copy()
+            temp_df["pred"] = pred
             temp_df["unc"] = unc_est
-            # add uncertainty specific stuff
-            # calibration --> run on val set
+            temp_df["final_delay"] = test_set_nn_y
+
+            # Calibration --> run on val set
             if "simple" in model_type:
                 pred_val, unc_val = model_func(train_set, val_set)
             else:
                 pred_val, unc_val = model_func(model_weights, val_set_nn_x, dropout_rate=0.5)
+            # use bl uncertainty if required
+            if "unc_bl" in model_type_name:
+                unc_val = unc_bl_val
             # get interval bounds
             quantiles = calibrate_pi(val_set_nn_y, pred_val, unc_val)
             print("Quantiles", quantiles)
             intervals = get_intervals(temp_df["pred"].values, temp_df["unc"].values, quantiles)
-            temp_df["interval_low_bound"] = intervals[:, 0]
-            temp_df["interval_high_bound"] = intervals[:, 1]
-            temp_df["covered"] = (temp_df["final_delay"] >= temp_df["interval_low_bound"]) & (
-                temp_df["final_delay"] <= temp_df["interval_high_bound"]
-            )
-            # add nll metric
-            # temp_df = add_nll_metric(temp_df)
-            best_factor = calibrate_likely(val_set_nn_y, pred_val, unc_val)
-            print("Best factor for likelihood", best_factor)
-            temp_df = add_likely(temp_df, factor=best_factor)
-            # add metrics in seconds:
-            temp_df = add_metrics_in_sec(temp_df)
+            temp_df["interval_low_bound"] = intervals[:, 0] * 60
+            temp_df["interval_high_bound"] = intervals[:, 1] * 60
+
+            # Likelihood:
+            if "lognormal" in model_type_name:
+                s, scale = test_ngb_lognormal(model_weights, test_set_nn_x, return_params=True)
+                temp_df = likelihood_lognormal(temp_df, s, scale)
+            else:
+                best_factor = calibrate_likely(val_set_nn_y, pred_val, unc_val)
+                print("Best factor for likelihood", best_factor)
+                temp_df = add_likely(temp_df, factor=best_factor)
 
             # get metrics and save in final dictionary
             save_csv_path = (
@@ -350,7 +308,7 @@ if __name__ == "__main__":
             res_dict[model_type_name] = get_metrics(temp_df, save_path=save_csv_path)
             print("metrics", res_dict[model_type_name])
 
-    result_table = pd.DataFrame(res_dict).swapaxes(1, 0).sort_values(["MSE", "mean_pi_width"]).round(3)
+    result_table = pd.DataFrame(res_dict).swapaxes(1, 0).sort_values(["mean_pi_width"]).round(3)
     print(result_table)
     result_table.to_csv(os.path.join("outputs", args.model_dir, "results_summary.csv"))
 
