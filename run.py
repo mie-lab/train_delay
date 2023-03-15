@@ -15,9 +15,10 @@ from train_delay.metrics import (
     add_metrics_in_sec,
     calibrate_likely,
     add_likely,
+    coverage,
 )
 from train_delay.mlp_model import test_test_time_dropout, test_aleatoric, test_unc_nn
-from train_delay.ngboost_model import test_ngboost
+from train_delay.ngboost_model import test_ngboost, test_ngb_lognormal, get_unc_lognormal, likelihood_lognormal
 from train_delay.rf_model import test_random_forest
 from train_delay.gaussian_process import test_gaussian_process
 
@@ -28,6 +29,7 @@ MODEL_FUNC_TEST = {
     "gaussian_process": test_gaussian_process,
     "nn": test_unc_nn,
     "ngb": test_ngboost,
+    "ngb_lognormal": test_ngb_lognormal,
     "simple_median": simple_median_bl,
     "simple_mean": simple_mean_bl,
     "simple_avg": overall_avg,
@@ -220,6 +222,13 @@ if __name__ == "__main__":
     # add basic information
     basic_df["train_id"] = test_set["train_id_daily"].values
     basic_df["day"] = test_set["day"].values
+    # use 100 bins of relative obs point
+    basic_df["obs_count"] = test_set["obs_count"].values
+    basic_df["normed_obs_count"] = (test_set["feat_obs_count"].values * 100).astype(int)
+    # ca 10000 - 60000 --> 60 bins
+    basic_df["time_to_end_plan"] = test_set["feat_time_to_end_plan"].values
+    basic_df["normed_time_to_end_plan"] = (test_set["feat_time_to_end_plan"].values / 100).astype(int)
+
     # get baseline uncertainties (std of final delay per train ID)
     _, unc_bl = simple_mean_bl(train_set, test_set)
 
@@ -228,6 +237,43 @@ if __name__ == "__main__":
 
     # Test models
     model_weights = args.model_dir
+
+    # run lognormal in separate part because different
+    if os.path.exists(os.path.join("trained_models", args.model_dir, "ngb_lognormal.p")):
+        pred, s, scale = test_ngb_lognormal(model_weights, test_set_nn_x)
+        pred_sec = pred * 60
+        final_delay = test_set_nn_y * 60
+        # fill datafraem
+        temp_df = basic_df.copy()
+        temp_df["pred"] = pred
+        temp_df["unc"] = get_unc_lognormal(s, scale)
+        temp_df["final_delay"] = final_delay
+
+        # given pred and unc in the dataframe, we can add all other metrics
+        temp_df["MSE"] = (pred_sec - final_delay) ** 2
+        # predict val data and use
+        pred_val, s_val, scale_val = test_ngb_lognormal(model_weights, val_set_nn_x)
+        model_res_dict = {"MAE": np.mean(np.abs(pred_sec - final_delay))}
+        unc_val = get_unc_lognormal(s_val, scale_val)
+        quantiles = calibrate_pi(val_set_nn_y, pred_val * 60, unc_val)
+        intervals = get_intervals(temp_df["pred"].values, temp_df["unc"].values, quantiles)
+        temp_df["pi_width"] = intervals[:, 1] - intervals[:, 0]
+        temp_df["interval_low_bound"] = intervals[:, 0]
+        temp_df["interval_high_bound"] = intervals[:, 1]
+
+        # add to model res dict
+        model_res_dict["coverage"] = coverage(temp_df)
+        cols_to_agg = temp_df[["unc", "pi_width", "MSE"]].rename(
+            columns={"pi_width": "mean_pi_width", "unc": "mean_unc"}
+        )
+        model_res_dict.update(cols_to_agg.mean().to_dict())
+        model_res_dict.update(likelihood_lognormal(final_delay / 60, s, scale))
+        from scipy.stats import spearmanr, pearsonr
+
+        model_res_dict["spearman_r"] = spearmanr(temp_df["unc"], np.sqrt(temp_df["MSE"]))[0]
+        model_res_dict["pearsonr"] = pearsonr(temp_df["unc"], np.sqrt(temp_df["MSE"]))[0]
+        res_dict["ngb_lognormal"] = model_res_dict
+
     for model_type in [
         "simple_current_delay",
         "simple_median",
@@ -261,13 +307,7 @@ if __name__ == "__main__":
         res_df["pred"] = pred
         res_df["final_delay"] = test_set_nn_y
         res_df["unc"] = unc
-        # use 100 bins of relative obs point
-        res_df["obs_count"] = test_set["obs_count"].values
-        res_df["obs_point_id"] = test_set["obs_point_id"].values
-        res_df["normed_obs_count"] = (test_set["feat_obs_count"].values * 100).astype(int)
-        # ca 10000 - 60000 --> 60 bins
-        res_df["time_to_end_plan"] = test_set["feat_time_to_end_plan"].values
-        res_df["normed_time_to_end_plan"] = (test_set["feat_time_to_end_plan"].values / 100).astype(int)
+
         # add metrics
         res_df["MSE"] = (res_df["final_delay"] - res_df["pred"]) ** 2
         res_df["MAE"] = (res_df["final_delay"] - res_df["pred"]).abs()
@@ -309,13 +349,6 @@ if __name__ == "__main__":
             )
             res_dict[model_type_name] = get_metrics(temp_df, save_path=save_csv_path)
             print("metrics", res_dict[model_type_name])
-
-        # plot results by obs count
-        if args.plot:
-            save_plot_obscount = os.path.join("outputs", args.model_dir, model_type)
-            plot_by_obs_count(res_df, col="normed_obs_count", save_path=save_plot_obscount)
-            # plot by time to end
-            plot_by_obs_count(res_df, col="normed_time_to_end_plan", save_path=save_plot_obscount)
 
     result_table = pd.DataFrame(res_dict).swapaxes(1, 0).sort_values(["MSE", "mean_pi_width"]).round(3)
     print(result_table)

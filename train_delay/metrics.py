@@ -29,7 +29,9 @@ def get_metrics(pred_and_unc, save_path=None):
     res_dict_model["coverage"] = coverage(pred_and_unc)
     res_dict_model["mean_pi_width"] = pred_and_unc["pi_width"].mean()
     if save_path is not None:
-        pred_and_unc.to_csv(save_path + "_res.csv", index=False)
+        pred_and_unc.drop(
+            ["obs_point_id", "normed_obs_count", "time_to_end_plan", "normed_time_to_end_plan"], axis=1, errors="ignore"
+        ).to_csv(save_path + "_res.csv", index=False)
     return res_dict_model
 
 

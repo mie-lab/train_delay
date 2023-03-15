@@ -7,7 +7,7 @@ from run import get_features, split_train_test, get_train_val_test
 from train_delay.mlp_model import train_test_time_dropout, train_aleatoric, train_unc_nn
 from train_delay.rf_model import train_random_forest, rf_overfit
 from train_delay.gaussian_process import train_gaussian_process
-from train_delay.ngboost_model import train_ngboost
+from train_delay.ngboost_model import train_ngboost, train_ngboost_lognormal
 
 MODEL_FUNC_TRAIN = {
     "nn_dropout": train_test_time_dropout,
@@ -17,6 +17,7 @@ MODEL_FUNC_TRAIN = {
     "nn": train_unc_nn,
     "rf_overfit": rf_overfit,
     "ngb": train_ngboost,
+    "ngb_lognormal": train_ngboost_lognormal
 }
 
 if __name__ == "__main__":
