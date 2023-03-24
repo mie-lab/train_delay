@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from .metrics import get_metrics
+from config import OUTLIER_CUTOFF
 
 
 def run_simple_baselines(train_set, val_set):
@@ -68,7 +69,7 @@ def simple_median_bl(train_data, test_data, **kwargs):
 
 
 def simple_current_delay_bl(train_data, test_data):
-    return test_data["delay_dep"].values, np.ones(len(test_data))
+    return np.clip(test_data["delay_dep"].values, -OUTLIER_CUTOFF, OUTLIER_CUTOFF), np.ones(len(test_data))
 
 
 def simple_mean_bl(train_data, test_data, **kwargs):

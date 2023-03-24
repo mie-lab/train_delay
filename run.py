@@ -31,10 +31,10 @@ MODEL_FUNC_TEST = {
     "simple_median": simple_median_bl,
     "simple_mean": simple_mean_bl,
     "simple_avg": overall_avg,
-    "simple_current_delay": simple_current_delay_bl,
+    # "simple_current_delay": simple_current_delay_bl, # not working currently --> do in evaluation
 }
 
-SAVE_MODELS = ["nn", "ngb", "simple_median", "random_forest"]
+SAVE_MODELS = ["nn", "ngb", "simple_median", "random_forest", "ngb_lognormal"]
 
 
 def split_train_test(data, ratio=0.8, save_path=None):
@@ -218,7 +218,10 @@ if __name__ == "__main__":
 
     basic_df = pd.DataFrame()
     # add basic information
-    basic_df["train_id"] = test_set["train_id_daily"].values
+    basic_df["train_id_daily"] = test_set["train_id_daily"].values
+    basic_df["train_id"] = test_set["train_id"].values
+    basic_df["delay_dep"] = test_set["delay_dep"].values
+    basic_df["direction"] = test_set["direction"].values
     basic_df["day"] = test_set["day"].values
     # use 100 bins of relative obs point
     basic_df["obs_count"] = test_set["obs_count"].values
@@ -238,7 +241,7 @@ if __name__ == "__main__":
     model_weights = args.model_dir
 
     for model_type in [
-        "simple_current_delay",
+        # "simple_current_delay",
         "simple_median",
         "simple_mean",
         "simple_avg",

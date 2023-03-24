@@ -29,7 +29,7 @@ def get_metrics(temp_df, save_path=None):
 
     if save_path is not None:
         temp_df.drop(
-            ["obs_point_id", "normed_obs_count", "time_to_end_plan", "normed_time_to_end_plan"], axis=1, errors="ignore"
+            ["normed_obs_count", "normed_time_to_end_plan"], axis=1, errors="ignore"
         ).to_csv(save_path + "_res.csv", index=False)
     return model_res_dict
 
