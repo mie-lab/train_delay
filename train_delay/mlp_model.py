@@ -225,6 +225,11 @@ def train_unc_nn(
     # # to continue training
     # model.load_state_dict(torch.load(os.path.join("trained_models", save_path, "nn_2")))
     criterion = attenuation_loss
+
+    # save path that allows for training one nn per obs
+    modified_save_path = save_path if "nn" in save_path else os.path.join(save_path, "nn")
+
+    # train
     train_model(
         model,
         train_set_nn_x,
@@ -232,7 +237,7 @@ def train_unc_nn(
         val_set_nn_x,
         val_set_nn_y,
         criterion,
-        save_path=os.path.join(save_path, "nn"),
+        save_path=modified_save_path,
         **kwargs,
     )
 
@@ -241,7 +246,10 @@ def test_unc_nn(load_model, val_set_nn_x, dropout_rate=0.5, nr_passes=10, **kwar
     """both aleatoric and epistemic uncertainty"""
     # init model with 2 outputs (mean and std)
     model = TrainDelayMLP(val_set_nn_x.shape[1], 2, dropout_rate=dropout_rate)
-    model.load_state_dict(torch.load(os.path.join("trained_models", load_model, "nn")))
+    # make flexible load_model path --> if nn already in path, don't add it
+    if "nn" not in load_model:
+        load_model = os.path.join(load_model, "nn")
+    model.load_state_dict(torch.load(os.path.join("trained_models", load_model)))
     model.train()  # Ensure that dropout is switched on
 
     # run for nr_passes times to get different predictions
