@@ -45,7 +45,7 @@ if __name__ == "__main__":
     data = pd.read_csv(args.inp_path)
     data.index.name = "id"
 
-    for obs in np.arange(61, 130, 10):
+    for obs in np.arange(1, 130, 10):
         print("---------- OBS", obs, "---------------------")
         # print("changed part")
         # print(len(data))
@@ -56,6 +56,9 @@ if __name__ == "__main__":
         train_set, val_set, test_set = split_train_test(data_obs)
 
         use_features = get_features(data.columns, version=args.version)
+
+        # remove features that are not relevant when only training on one observation
+        use_features = [f for f in use_features if f not in ["feat_obs_count", "feat_time_since_stop"]]
 
         (train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y) = get_train_val_test(
             train_set, val_set, test_set, use_features, training=True
@@ -71,4 +74,5 @@ if __name__ == "__main__":
             dropout_rate=0.5,
             save_path=os.path.join(args.out_dir, f"nn_{obs}"),
             use_features=use_features,
+            learning_rate=0.0005,
         )

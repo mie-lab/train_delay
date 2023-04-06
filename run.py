@@ -264,9 +264,9 @@ if __name__ == "__main__":
         "ngb",
         "ngb_lognormal",
         "nn",
-        "random_forest",
-        "nn_aleatoric",
-        "nn_dropout",
+        # "random_forest",
+        # "nn_aleatoric",
+        # "nn_dropout",
     ]:
         # check whether pretrained model exists
         trained_model_exists = os.path.exists(

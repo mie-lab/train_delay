@@ -17,7 +17,7 @@ MODEL_FUNC_TRAIN = {
     "nn": train_unc_nn,
     "rf_overfit": rf_overfit,
     "ngb": train_ngboost,
-    "ngb_lognormal": train_ngboost_lognormal
+    "ngb_lognormal": train_ngboost_lognormal,
 }
 
 if __name__ == "__main__":

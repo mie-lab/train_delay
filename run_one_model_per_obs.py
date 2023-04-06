@@ -74,6 +74,9 @@ if __name__ == "__main__":
     # select suitable features for ML models
     use_features = get_features(data.columns, version=args.version)
 
+    # remove features that are not relevant when only training on one observation
+    use_features = [f for f in use_features if f not in ["feat_obs_count", "feat_time_since_stop"]]
+
     # preprocess and dropn the ones with NaN features
     (
         train_set_index,
@@ -97,17 +100,7 @@ if __name__ == "__main__":
     # print(pd.DataFrame(res_dict).swapaxes(1, 0).sort_values("MSE"))
 
     basic_df = test_set[
-        [
-            "train_id_daily",
-            "train_id",
-            "day",
-            "direction",
-            "cat",
-            "stops",
-            "remaining_runtime",
-            "obs_count",
-            "delay_dep",
-        ]
+        ["train_id_daily", "train_id", "day", "DIR", "cat", "stops", "remaining_runtime", "obs_count", "delay_dep",]
     ].copy()
     # ca 10000 - 60000 --> 60 bins
     basic_df["time_to_end_plan"] = test_set["feat_time_to_end_plan"].values
@@ -136,7 +129,7 @@ if __name__ == "__main__":
     #     "nn_dropout",
     # ]:
     for model_name in os.listdir(os.path.join("trained_models", args.model_dir)):
-        if model_name[-3:] == "png":
+        if model_name[-3:] == "png" or model_name[0] == ".":
             continue
         model_type = "nn"
         # check whether pretrained model exists

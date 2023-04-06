@@ -76,6 +76,7 @@ def train_model(
     criterion,
     batch_size=8,
     epochs=10,
+    learning_rate=1e-5,
     save_path=os.path.join("test", "nn"),
     **kwargs,
 ):
@@ -86,7 +87,7 @@ def train_model(
     test_loader = DataLoader(val_set_nn_torch, batch_size=batch_size, shuffle=False)
 
     # init optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     model.train()
     best_performance = np.inf
