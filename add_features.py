@@ -19,6 +19,7 @@ if __name__ == "__main__":
 
     # obs count feature
     featurizer.transform_obs_count()
+    featurizer.num_stops_feature()
 
     # add previous delay features
     featurizer.delay_at_preceding_obs(order=order)

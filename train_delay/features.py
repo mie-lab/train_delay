@@ -95,6 +95,9 @@ class Features:
             weather_data.rename(columns={c: "feat_weather_" + c for c in weather_data.columns}, inplace=True)
             self.data = self.data.merge(weather_data, how="left", left_index=True, right_index=True)
 
+    def num_stops_feature(self):
+        self.data["feat_stops"] = self.data["stops"] / self.data["stops"].max()
+
     def time_features(self, col_name):
         # add basic features
         self.data[f"feat_{col_name}_hour"] = self.data[col_name].apply(lambda x: x.hour if not pd.isna(x) else pd.NA)
@@ -276,6 +279,61 @@ class Features:
         one_hot_train_id = pd.get_dummies(self.data["train_id_daily"], prefix="feat_train_id")
         self.data = self.data.merge(one_hot_train_id, left_index=True, right_index=True)
 
+    def time_since_stop_feature(self):
+        # new feature: time_since last stop
+        self.data["time_since_stop"] = pd.NA
+        self.data.loc[self.data["obs_type"] == "stop", "time_since_stop"] = 0
+
+        counter = 0
+        while sum(self.data["time_since_stop"].isna()) > 0:
+            # shift these two
+            self.data["prev_time_since_stop"] = self.data["time_since_stop"].shift(1)
+            self.data["prev_remaining_runtime"] = self.data["remaining_runtime"].shift(1)
+            self.data["prev_train_id"] = self.data["train_id"].shift(1)
+            cond_fill = (
+                pd.isna(self.data["time_since_stop"])
+                & (self.data["prev_train_id"] == self.data["train_id"])
+                & ~pd.isna(self.data["prev_time_since_stop"])
+            )
+            self.data["fill_values"] = (
+                self.data["prev_remaining_runtime"] - self.data["remaining_runtime"]
+            ) + self.data["prev_time_since_stop"]
+            self.data.loc[cond_fill, "time_since_stop"] = self.data.loc[cond_fill, "fill_values"]
+            # print(counter, sum(self.data["time_since_stop"].isna()))
+            counter += 1
+
+        self.data.drop(
+            ["prev_remaining_runtime", "prev_time_since_stop", "prev_train_id", "fill_values"], axis=1, inplace=True
+        )
+        self.data.rename(columns={"time_since_stop": "feat_time_since_stop"}, inplace=True)
+
     def save(self, out_path=os.path.join("data", "data_enriched.csv")):
+        # clean up columns
+        self.data.drop(
+            [
+                "Station_1",
+                "Station_last",
+                "lng_final",
+                "lat_final",
+                "obs_short",
+                "lng",
+                "lat",
+                "arr_real",
+                "trip_first_dep_plan",
+                "trip_final_arr_plan",
+                "trip_final_arr_real",
+                "trip_first_dep_plan_h",
+                "trip_first_dep_plan_m",
+                "trip_final_arr_plan_h",
+                "trip_final_arr_plan_m",
+                "arr_plan",
+                "dep_plan",
+                "dep_real",
+            ],
+            axis=1,
+            inplace=True,
+            errors="ignore",
+        )
+
         # save
         self.data.to_csv(out_path, index=False)

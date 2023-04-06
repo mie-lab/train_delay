@@ -172,6 +172,21 @@ def get_features(columns, version=2):
         hist_final_delay = [feat for feat in columns if feat.startswith("feat_final_delay-day")]
         use_features = feats_necessary + hist_delay + hist_final_delay
         print(use_features)
+    elif version == 4:
+        feats_necessary = [
+            "delay_dep",
+            "feat_obs_count",
+            "feat_time_to_end_plan",
+            "feat_avg_prev_delay",
+            "feat_stops",
+            "feat_time_since_stop",
+        ]
+        # add delay in the past days
+        hist_delay = [feat for feat in columns if feat.startswith("feat_delay_day")]
+        # add historic final delay
+        hist_final_delay = [feat for feat in columns if feat.startswith("feat_final_delay-day")]
+        use_features = feats_necessary + hist_delay + hist_final_delay
+        print(use_features)
     else:
         raise NotImplementedError
     return use_features
@@ -216,19 +231,20 @@ if __name__ == "__main__":
     # print("Intermediate results of baselines:")
     # print(pd.DataFrame(res_dict).swapaxes(1, 0).sort_values("MSE"))
 
-    basic_df = pd.DataFrame()
-    # add basic information
-    basic_df["train_id_daily"] = test_set["train_id_daily"].values
-    basic_df["train_id"] = test_set["train_id"].values
-    basic_df["delay_dep"] = test_set["delay_dep"].values
-    basic_df["direction"] = test_set["direction"].values
-    basic_df["day"] = test_set["day"].values
-    # use 100 bins of relative obs point
-    basic_df["obs_count"] = test_set["obs_count"].values
-    basic_df["normed_obs_count"] = (test_set["feat_obs_count"].values * 100).astype(int)
-    # ca 10000 - 60000 --> 60 bins
-    basic_df["time_to_end_plan"] = test_set["feat_time_to_end_plan"].values
-    basic_df["normed_time_to_end_plan"] = (test_set["feat_time_to_end_plan"].values / 100).astype(int)
+    basic_df = test_set[
+        [
+            "train_id_daily",
+            "train_id",
+            "delay_dep",
+            "DIR",
+            "day",
+            "obs_count",
+            "stops",
+            "cat",
+            "remaining_runtime",
+            "distanceKM_to_final",
+        ]
+    ].copy()
 
     # get baseline uncertainties (std of final delay per train ID)
     _, unc_bl = simple_mean_bl(train_set, test_set)
