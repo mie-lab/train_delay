@@ -69,7 +69,11 @@ def simple_median_bl(train_data, test_data, **kwargs):
 
 
 def simple_current_delay_bl(train_data, test_data):
-    return np.clip(test_data["delay_dep"].values, -OUTLIER_CUTOFF, OUTLIER_CUTOFF), np.ones(len(test_data))
+    output_for_unc = simple_avg_bl(train_data, test_data, agg_func="median")
+    return (
+        np.clip(test_data["delay_dep"].values, -OUTLIER_CUTOFF * 60, OUTLIER_CUTOFF * 60) / 60,
+        output_for_unc["unc"].values,
+    )
 
 
 def simple_mean_bl(train_data, test_data, **kwargs):
@@ -105,4 +109,3 @@ def knn_weighted(train_data, test_data):
     # TODO: can also make a NN baseline of all data
     # here: only trains with the same id are okay
     return test_w_historic
-

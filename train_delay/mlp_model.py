@@ -265,4 +265,5 @@ def test_unc_nn(load_model, val_set_nn_x, dropout_rate=0.5, nr_passes=10, **kwar
     aleatoric_unc = np.mean(results[:, 1], axis=0)
 
     return pred, dropout_unc + aleatoric_unc
-
+    # # for aleatoric vs epistmic:
+    # return pred, dropout_unc, aleatoric_unc

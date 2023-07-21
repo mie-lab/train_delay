@@ -31,10 +31,10 @@ MODEL_FUNC_TEST = {
     "simple_median": simple_median_bl,
     "simple_mean": simple_mean_bl,
     "simple_avg": overall_avg,
-    # "simple_current_delay": simple_current_delay_bl, # not working currently --> do in evaluation
+    "simple_current_delay": simple_current_delay_bl,
 }
 
-SAVE_MODELS = ["nn", "ngb", "simple_median", "random_forest", "ngb_lognormal"]
+SAVE_MODELS = ["nn", "ngb", "simple_median", "random_forest", "ngb_lognormal", "simple_current_delay"]
 
 
 def split_train_test(data, ratio=0.8, save_path=None):
@@ -283,6 +283,8 @@ if __name__ == "__main__":
             pred, unc = model_func(train_set, test_set)
         else:
             pred, unc = model_func(model_weights, test_set_nn_x, dropout_rate=0.5, return_params=False)
+            # # for aleatoric vs epistmic:
+            # pred, _, unc = model_func(model_weights, test_set_nn_x, dropout_rate=0.5, return_params=False)
 
         # add to the other metrics
         for model_type_name, unc_est in zip([model_type, model_type + "_unc_bl"], [unc, unc_bl]):
@@ -301,6 +303,9 @@ if __name__ == "__main__":
                 pred_val, unc_val = model_func(train_set, val_set)
             else:
                 pred_val, unc_val = model_func(model_weights, val_set_nn_x, dropout_rate=0.5)
+                # # for aleatoric vs epistmic:
+                # pred_val, _, unc_val = model_func(model_weights, val_set_nn_x, dropout_rate=0.5)
+
             # use bl uncertainty if required
             if "unc_bl" in model_type_name:
                 unc_val = unc_bl_val
@@ -330,4 +335,3 @@ if __name__ == "__main__":
     result_table = pd.DataFrame(res_dict).swapaxes(1, 0).sort_values(["mean_pi_width"]).round(3)
     print(result_table)
     result_table.to_csv(os.path.join("outputs", args.model_dir, "results_summary.csv"))
-
