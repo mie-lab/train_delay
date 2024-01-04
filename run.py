@@ -18,13 +18,14 @@ from train_delay.metrics import (
 from train_delay.mlp_model import test_test_time_dropout, test_aleatoric, test_unc_nn
 from train_delay.ngboost_model import test_ngboost, test_ngb_lognormal
 from train_delay.rf_model import test_random_forest
-from train_delay.gaussian_process import test_gaussian_process
+
+# from train_delay.gaussian_process import test_gaussian_process
 
 MODEL_FUNC_TEST = {
     "nn_dropout": test_test_time_dropout,
     "nn_aleatoric": test_aleatoric,
     "random_forest": test_random_forest,
-    "gaussian_process": test_gaussian_process,
+    # "gaussian_process": test_gaussian_process,
     "nn": test_unc_nn,
     "ngb": test_ngboost,
     "ngb_lognormal": test_ngb_lognormal,
@@ -291,6 +292,8 @@ if __name__ == "__main__":
             if "simple" in model_type and "bl" in model_type_name:
                 # only do the bl evaluation for the non-simple models (otherwise same result)
                 continue
+            # if "bl" in model_type_name:
+            #     continue
 
             # fill the table with our basic information
             temp_df = basic_df.copy()
@@ -310,7 +313,7 @@ if __name__ == "__main__":
             if "unc_bl" in model_type_name:
                 unc_val = unc_bl_val
             # get interval bounds
-            quantiles = calibrate_pi(val_set_nn_y, pred_val, unc_val)
+            quantiles = calibrate_pi(val_set_nn_y, pred_val, unc_val)  # , alpha=0.4)
             print("Quantiles", quantiles)
             intervals = get_intervals(temp_df["pred"].values, temp_df["unc"].values, quantiles)
             temp_df["interval_low_bound"] = intervals[:, 0] * 60

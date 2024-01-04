@@ -6,14 +6,14 @@ import warnings
 from run import get_features, split_train_test, get_train_val_test
 from train_delay.mlp_model import train_test_time_dropout, train_aleatoric, train_unc_nn
 from train_delay.rf_model import train_random_forest, rf_overfit
-from train_delay.gaussian_process import train_gaussian_process
+# from train_delay.gaussian_process import train_gaussian_process
 from train_delay.ngboost_model import train_ngboost, train_ngboost_lognormal
 
 MODEL_FUNC_TRAIN = {
     "nn_dropout": train_test_time_dropout,
     "nn_aleatoric": train_aleatoric,
     "random_forest": train_random_forest,
-    "gaussian_process": train_gaussian_process,
+    # "gaussian_process": train_gaussian_process,
     "nn": train_unc_nn,
     "rf_overfit": rf_overfit,
     "ngb": train_ngboost,

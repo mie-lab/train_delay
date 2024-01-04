@@ -55,7 +55,7 @@ def attenuation_loss(output, y_true, validate=False):
         return torch.mean((mu_pred - y_true) ** 2)
 
     sigma_pred = torch.exp(log_sigma_pred)  # undo the log
-    return torch.mean(torch.log(sigma_pred ** 2) + ((y_true - mu_pred) / sigma_pred) ** 2)
+    return torch.mean(torch.log(sigma_pred**2) + ((y_true - mu_pred) / sigma_pred) ** 2)
 
 
 def mse_loss(output, y_true, **kwargs):

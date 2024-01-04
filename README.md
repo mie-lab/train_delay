@@ -8,9 +8,9 @@ The following steps are executed:
 
 #### 1) Add features to the data (this takes a few minutes): 
 
-This will take the raw data (path hard coded in the script) and preprocess it, adding some columns with input features to the models.
+This will take the raw data and preprocess it, adding some columns with features to the data.
 ```
-python add_features.py
+python add_features.py --inp_path path_to_data
 ```
 
 #### 2) Train model
@@ -19,6 +19,8 @@ The following command will train a Neural Network with aleatoric and epistemic u
 ```
 python train.py -m nn -o out_dir_name -e 50
 ```
+
+All code to train and test the neural network with aleatoric and epistemic uncertainty estimation is provided [here](train_delay/mlp_model.py).
 
 #### 3) Evaluate the results
 

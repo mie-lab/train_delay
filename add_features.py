@@ -1,12 +1,15 @@
 import os
-from xml.sax.handler import feature_external_ges
+import argparse
 
 from config import *
 from train_delay.features import Features
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", "--inp_path", type=str, default=os.path.join("data", "data_2023.csv"))
+    args = parser.parse_args()
 
-    featurizer = Features(os.path.join("data", "data_2023.csv"))
+    featurizer = Features(args.inp_path)
     order = 3
     print(len(featurizer.data))
 

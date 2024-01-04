@@ -75,9 +75,13 @@ def mc_to_myformat(mc_out):
 
 def double_grouping_horizon(res):
     """Helper function: group by horizon"""
-    grouped_by_day = res.groupby(["train_id", "horizon"]).agg(metric_agg_dict).reset_index()
+    if "unc" not in res.columns:
+        agg_dict = {key: metric_agg_dict[key] for key in metric_agg_dict if key != "unc"}
+    else:
+        agg_dict = metric_agg_dict
+    grouped_by_day = res.groupby(["train_id", "horizon"]).agg(agg_dict).reset_index()
 
-    vals = grouped_by_day.groupby("horizon").agg(metric_agg_dict).reset_index()
+    vals = grouped_by_day.groupby("horizon").agg(agg_dict).reset_index()
 
     vals["num"] = vals["horizon"].apply(lambda x: int(x.split("(")[1].split(",")[1][:-1]))
     vals_filtered = vals[vals["num"] <= 70]
@@ -145,7 +149,7 @@ def metric_summary_table(model_res_files):
     """Make a table with all models as rows and all metrics as columns"""
     mc_2step_index = 4
     mc_multi_index = 5
-    res_summary = pd.read_csv(f"outputs/{path}/results_summary.csv")
+    res_summary = pd.read_csv(os.path.join("in_path", "results_summary.csv"))
     res_summary.set_index("Unnamed: 0", inplace=True)
     res_summary.index.name = "Model"
     res_summary = res_summary.loc[["nn", "ngb", "ngb_lognormal", "simple_median", "simple_current_delay"]]
@@ -381,7 +385,7 @@ def plot_distance_vs_runtime(nn_res_filtered, metric="Likely_30", direction="dow
     plt.ylim(ymin, ymax)
     plt.ylabel("LoR [%] - 60 seconds")
     plt.tight_layout()
-    plt.savefig(f"figures/distance_time_mapping_{direction}.pdf")
+    plt.savefig(os.path.join(fig_path, f"distance_time_mapping_{direction}.pdf"))
     # plt.show()
 
 
@@ -482,20 +486,20 @@ def regression_analysis(res_orig):
 
 
 if __name__ == "__main__":
-    fig_path = "figures"
-    in_path = "outputs"
+    fig_path = "figures_new"
+    in_path = "outputs/2023_2_v4 - final"
+    os.makedirs(fig_path, exist_ok=True)
 
     # LOAD ALL RESULTS
-    path = "2023_2_v4 - final"
-    nn_out = pd.read_csv(f"outputs/{path}/nn_res.csv")
-    ngb_out = pd.read_csv(f"outputs/{path}/ngb_res.csv")
-    simple_median_out = pd.read_csv(f"outputs/{path}/simple_median_res.csv")
+    nn_out = pd.read_csv(os.path.join(in_path, "nn_res.csv"))
+    ngb_out = pd.read_csv(os.path.join(in_path, "ngb_res.csv"))
+    simple_median_out = pd.read_csv(os.path.join(in_path, "simple_median_res.csv"))
     # random_forest_out = pd.read_csv(f"outputs/{path}/random_forest_res.csv")
-    ngb_lognormal = pd.read_csv(f"outputs/{path}/ngb_lognormal_res.csv")
-    mc_2stepE = mc_to_myformat(pd.read_csv(f"outputs/{path}/mc-2stepE_res.csv", delimiter=";", decimal=","))
-    mc_2stepP = mc_to_myformat(pd.read_csv(f"outputs/{path}/mc-2stepP_res.csv", delimiter=";", decimal=","))
-    mc_multi = mc_to_myformat(pd.read_csv(f"outputs/{path}/mc-multi_res.csv", delimiter=";", decimal=","))
-    bn_out = pd.read_csv(f"outputs/{path}/bn_res.csv", delimiter=";", decimal=",").rename(
+    ngb_lognormal = pd.read_csv(os.path.join(in_path, "ngb_lognormal_res.csv"))
+    mc_2stepE = mc_to_myformat(pd.read_csv(os.path.join(in_path, "mc-2stepE_res.csv"), delimiter=";", decimal=","))
+    mc_2stepP = mc_to_myformat(pd.read_csv(os.path.join(in_path, "mc-2stepP_res.csv"), delimiter=";", decimal=","))
+    mc_multi = mc_to_myformat(pd.read_csv(os.path.join(in_path, "mc-multi_res.csv"), delimiter=";", decimal=","))
+    bn_out = pd.read_csv(os.path.join(in_path, "bn_res.csv"), delimiter=";", decimal=",").rename(
         {"likely_15": "Likely_15", "likely_30": "Likely_30", "likely_45": "Likely_45", "mae": "MAE"}, axis=1
     )
     # current_delay_out = pd.read_csv(f"outputs/{path}/simple_current_delay_res.csv")
