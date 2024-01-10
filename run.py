@@ -134,7 +134,7 @@ def get_train_val_test(train_set, val_set, test_set, use_features, training=Fals
 def get_features(columns, version=2):
     if version == 1:
         use_features = [
-            "delay_dep",
+            "feat_delay_dep",
             "feat_obs_count",
             "feat_time_to_end_real",
             "feat_time_to_end_plan",
@@ -157,7 +157,7 @@ def get_features(columns, version=2):
     # train_id_feats = [col for col in cols if col.startswith("train_id_SBB")]
     elif version == 2:
         # All features
-        use_features = ["delay_dep"] + [
+        use_features = [
             feat
             for feat in columns
             if feat.startswith("feat")
@@ -166,7 +166,7 @@ def get_features(columns, version=2):
         ]
     elif version == 3:
         print("Using features that are comparable features to Markov chain")
-        feats_necessary = ["delay_dep", "feat_obs_count", "feat_time_to_end_plan", "feat_avg_prev_delay"]
+        feats_necessary = ["feat_delay_dep", "feat_obs_count", "feat_time_to_end_plan", "feat_avg_prev_delay"]
         # add delay in the past days
         hist_delay = [feat for feat in columns if feat.startswith("feat_delay_day")]
         # add historic final delay

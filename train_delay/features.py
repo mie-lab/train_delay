@@ -4,6 +4,7 @@ import pickle
 import os
 import matplotlib.pyplot as plt
 import pandas as pd
+import json
 import geopandas as gpd
 from datetime import timedelta
 from scipy.stats import pearsonr
@@ -12,13 +13,35 @@ from meteostat import Daily
 from datetime import timedelta
 from meteostat import Point as MeteoPoint
 
+WEATHER_OUT_PATH = "data/weather_data_2.csv"
+
 
 class Features:
     def __init__(self, path) -> None:
         self.data = pd.read_csv(path).drop(["Unnamed: 0"], axis=1, errors="ignore")
-        # fill in delay_dep at last observation
+
+        # correct NaNs
+        # fill in nans in delay_dep und dep_real at last observation
         nans = pd.isna(self.data["delay_dep"])
         self.data.loc[nans, "delay_dep"] = self.data.loc[nans, "final_delay"]
+        self.data.loc[self.data["dep_real"].isna(), "dep_real"] = self.data.loc[
+            self.data["dep_real"].isna(), "arr_real"
+        ]
+        self.data.loc[self.data["dep_plan"].isna(), "dep_plan"] = self.data.loc[
+            self.data["dep_plan"].isna(), "arr_plan"
+        ]
+        # replace remaining Nans in dep_real with the row before
+        self.data.sort_values(["train_id", "obs_count"], inplace=True)
+        self.data["last_dep_time"] = self.data["dep_real"].shift(1)
+        self.data["last_train_id"] = self.data["train_id"].shift(1)
+        fill_cond = (pd.isna(self.data["dep_real"])) & (self.data["train_id"] == self.data["train_id"])
+        self.data.loc[fill_cond, "dep_real"] = self.data.loc[fill_cond, "last_dep_time"]
+        self.data.drop(["last_dep_time", "last_train_id"], axis=1, inplace=True)
+        print("still NaN:", self.data["dep_real"].isna().sum())
+
+    def add_timevars(self) -> None:
+        """convert to datetimes and compute features on times"""
+
         # to datetime
         for timevar in [
             "arr_plan",
@@ -44,10 +67,35 @@ class Features:
         if any(self.data["final_delay"] > 60 * 5):
             # scale the data if they are provided in seconds
             self.data["final_delay"] = self.data["final_delay"] / 60
-        # remove outliers if necessary
-        self.data = self.data[
-            (self.data["final_delay"] <= outlier_cutoff) & (self.data["final_delay"] >= -outlier_cutoff)
+
+    def add_basic_features(self):
+        # fill nans for feature
+        self.fill_with_mean_per_train("supplement_time")
+        self.fill_with_mean_per_train("buffer_time")
+        self.data["feat_log_buffer_time"] = np.log(self.data["feat_buffer_time"])
+        self.data.drop("feat_buffer_time", inplace=True, axis=1)
+        # scale delay
+        self.data["feat_delay_dep"] = self.data["delay_dep"] / 60
+        self.data["distanceKM_to_final"] = self.data["distanceKM_to_final"]
+        self.data["feat_fast_slow"] = self.data["cat"].map({"slow": 0, "fast": 1})
+        self.data["feat_direction"] = self.data["DIR"].map({"up": 0, "down": 1})
+
+    def fill_with_mean_per_train(self, variable):
+        # get mean per train ID
+        mean_per_train = pd.DataFrame(self.data.groupby("train_id")[variable].mean()).rename(
+            columns={variable: "mean_val"}
+        )
+        # fill NaNs with the overall mean
+        mean_per_train.fillna(mean_per_train.mean(), inplace=True)
+        # add to data
+        self.data = self.data.merge(mean_per_train, how="left", left_on="train_id", right_index=True)
+        # transform to feature
+        self.data["feat_" + variable] = self.data[variable]
+        # fill with mean
+        self.data.loc[pd.isna(self.data["feat_" + variable]), "feat_" + variable] = self.data.loc[
+            pd.isna(self.data["feat_" + variable]), "mean_val"
         ]
+        self.data.drop("mean_val", axis=1, inplace=True)
 
     def transform_obs_count(self):
         # get maximum observation per train ID
@@ -58,42 +106,28 @@ class Features:
         self.data = self.data.merge(max_obs_per_train, how="left", left_on="train_id", right_index=True)
         # feat obs is divided by the maximum
         self.data["feat_obs_count"] = self.data["obs_count"] / self.data["feat_obs_count"]
-        # TODO: set the ones of the final observation to NaN? Then they are dropped later
-        self.data.loc[self.data["feat_obs_count"] == 1, "feat_obs_count"] = pd.NA
 
-    def add_weather(self, weather_path=None):
-        def get_daily_weather(row):
-            lng, lat = (row["lng"], row["lat"])
-            loc = MeteoPoint(lat, lng)
-            end = row["dep_real"].replace(tzinfo=None)
-            self.data = Daily(loc, end - timedelta(days=1, minutes=1), end).fetch()
-            if len(self.data) == 1:
-                return pd.Series(self.data.iloc[0])
-            else:
-                for random_testing in [100, 250, 500]:
-                    loc = MeteoPoint(lat, lng, random_testing)
-                    self.data = Daily(loc, end - timedelta(days=1), end).fetch()
-                    if len(self.data) == 1:
-                        return pd.Series(self.data.iloc[0])
-                return pd.NA
+    def add_weather(self, weather_path="data/weather_data"):
+        weather_data = pd.read_csv(weather_path + ".csv")
+        weather_data["time"] = pd.to_datetime(weather_data["time"])
+        weather_data.set_index(["station", "time"], inplace=True)
+        with open(weather_path + ".json", "r") as infile:
+            obs_point_station_mapping = json.load(infile)
 
-        if weather_path is not None:
-            weather_data = pd.read_csv(weather_path).set_index(["day", "obs_point_id"])
-            # Check how many nans there are per weather feature and remove the ones with too many
-            weather_feats = weather_data.columns
-            nr_nans = pd.isna(weather_data[weather_feats]).sum()
-            cols_too_many_nans = list(nr_nans[nr_nans > 0.02 * len(weather_data)].index)
-            weather_feats = [f for f in weather_feats if f not in cols_too_many_nans]
-            # merge with data
-            self.data = self.data.merge(
-                weather_data[weather_feats], how="left", left_on=["day", "obs_point_id"], right_index=True
-            )
-        else:
-            weather_input = self.data[["lng", "lat", "dep_real"]].dropna()
-            weather_data = weather_input.apply(get_daily_weather, axis=1)
-            weather_data["prcp"] = weather_data["prcp"].fillna(0)
-            weather_data.rename(columns={c: "feat_weather_" + c for c in weather_data.columns}, inplace=True)
-            self.data = self.data.merge(weather_data, how="left", left_index=True, right_index=True)
+        # map closest station
+        self.data["closest_station"] = self.data["obs_point_id"].astype(str).map(obs_point_station_mapping).astype(int)
+
+        # get columns that have no NaNs (the others have basically just Nans)
+        nr_nans = pd.isna(weather_data).sum()
+        cols_no_nans = list(nr_nans[nr_nans < 1].index)
+        useful_weather_data = weather_data[cols_no_nans]
+        useful_weather_data.columns = "feat_weather_" + useful_weather_data.columns
+        # round departure to hour
+        self.data["dep_real_hour"] = self.data["dep_real"].dt.round("H")
+        # merge
+        self.data = self.data.merge(
+            useful_weather_data, left_on=["closest_station", "dep_real_hour"], right_index=True, how="left"
+        ).drop(["closest_station", "dep_real_hour"], axis=1)
 
     def num_stops_feature(self):
         self.data["feat_stops"] = self.data["stops"] / self.data["stops"].max()
@@ -181,17 +215,7 @@ class Features:
         # isnan
         data_temp.loc[data_temp.groupby("train_id")["obs_count"].transform("idxmax"), "is_last"] = True
         data_temp["is_last"].fillna(False, inplace=True)
-        # Problem: NaNs in dep real --> we need to sort by dep real
-        # first fill with arr_real
-        data_temp.loc[pd.isna(self.data["dep_real"]), "dep_real"] = self.data.loc[
-            pd.isna(self.data["dep_real"]), "arr_real"
-        ]
-        # print(any(pd.isna(data_temp["dep_real"])))
-        # secondly fill the leftover NaNs with dep_plan
-        data_temp.loc[pd.isna(data_temp["dep_real"]), "dep_real"] = data_temp.loc[
-            pd.isna(self.data["dep_real"]), "dep_plan"
-        ]
-
+        assert data_temp["dep_real"].isna().sum() == 0, "still contains NaNs"
         # sort by departure (basically observation time point)
         data_temp.sort_values("dep_real", inplace=True)
         # group by day
@@ -210,7 +234,7 @@ class Features:
     def delays_other_trains(self, order=5, minute_thresh=10):
         """
         Get delays of surrounding trains
-        
+
         NOTES:
         - We consider all observations in the 10 minutes (minute_thresh) before the target observation
         - The train ID must be different --> we are interested in the delay of other trains
