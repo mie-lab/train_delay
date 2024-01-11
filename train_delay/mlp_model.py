@@ -5,7 +5,7 @@ import numpy as np
 import os
 import pandas as pd
 
-device = "cpu"
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 from config import OUTLIER_CUTOFF
 
 scaling_fun = {
@@ -15,16 +15,14 @@ scaling_fun = {
 
 
 class TrainDelayMLP(nn.Module):
-    def __init__(self, inp_size, out_size, dropout_rate=0, act="sigmoid"):
+    def __init__(self, inp_size, out_size, dropout_rate=0, act="sigmoid", first_layer_size=128, second_layer_size=128):
         super(TrainDelayMLP, self).__init__()
-        self.linear_1 = nn.Linear(inp_size, 128)
+        self.linear_1 = nn.Linear(inp_size, first_layer_size)
         self.dropout1 = nn.Dropout(dropout_rate)
-        self.linear_2 = nn.Linear(128, 128)
+        self.linear_2 = nn.Linear(first_layer_size, second_layer_size)
         self.dropout2 = nn.Dropout(dropout_rate)
-        self.linear_3 = nn.Linear(128, out_size)
-        self.final_act = scaling_fun[
-            act
-        ]  # TODO: aleatoric --> activation function should only be for mean, not for std!!
+        self.linear_3 = nn.Linear(second_layer_size, out_size)
+        self.final_act = scaling_fun[act]
 
     def forward(self, x):
         hidden = self.dropout1(torch.relu(self.linear_1(x)))

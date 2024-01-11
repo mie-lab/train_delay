@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import argparse
 import warnings
+import time
 
 from feature_selection import select_features
 from run import split_train_test, get_train_val_test
@@ -63,7 +64,7 @@ if __name__ == "__main__":
         train_set, val_set, test_set, use_features, training=True
     )
     print("DATA SHAPES", train_set_nn_x.shape, train_set_nn_y.shape, val_set_nn_x.shape, val_set_nn_y.shape)
-
+    tic = time.time()
     model_func(
         train_set_nn_x,
         train_set_nn_y,
@@ -74,3 +75,4 @@ if __name__ == "__main__":
         save_path=out_folder,
         use_features=use_features,
     )
+    print("Runtime", time.time() - tic)

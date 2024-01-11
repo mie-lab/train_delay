@@ -83,6 +83,7 @@ def get_train_val_test(train_set, val_set, test_set, use_features, training=Fals
     # retrict to these features plus the predicted variable
     prev_len = len(train_set)
     train_set = train_set[use_features + ["final_delay"]].dropna()
+    assert prev_len - len(train_set) == 0, "there are still NaNs"
     print("Dropping nans:", prev_len - len(train_set))
     val_set = val_set[use_features + ["final_delay"]].dropna()
     test_set = test_set[use_features + ["final_delay"]].dropna()
