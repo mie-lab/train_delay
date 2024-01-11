@@ -15,18 +15,33 @@ scaling_fun = {
 
 
 class TrainDelayMLP(nn.Module):
-    def __init__(self, inp_size, out_size, dropout_rate=0, act="sigmoid", first_layer_size=128, second_layer_size=128):
+    def __init__(
+        self,
+        inp_size,
+        out_size,
+        dropout_rate=0,
+        act="sigmoid",
+        first_layer_size=128,
+        second_layer_size=128,
+        nr_layers=2,
+        **kwargs,
+    ):
         super(TrainDelayMLP, self).__init__()
         self.linear_1 = nn.Linear(inp_size, first_layer_size)
         self.dropout1 = nn.Dropout(dropout_rate)
         self.linear_2 = nn.Linear(first_layer_size, second_layer_size)
         self.dropout2 = nn.Dropout(dropout_rate)
         self.linear_3 = nn.Linear(second_layer_size, out_size)
+        self.third_layer = nr_layers == 3
+        self.linear_25 = nn.Linear(second_layer_size, second_layer_size)
         self.final_act = scaling_fun[act]
+        print("initialized model with", first_layer_size, second_layer_size, nr_layers, dropout_rate)
 
     def forward(self, x):
         hidden = self.dropout1(torch.relu(self.linear_1(x)))
         hidden = self.dropout2(torch.relu(self.linear_2(hidden)))
+        if self.third_layer:
+            hidden = self.dropout2(torch.relu(self.linear_25(hidden)))
         out = self.final_act(self.linear_3(hidden))
         return out
 
@@ -78,6 +93,7 @@ def train_model(
     save_path=os.path.join("test", "nn"),
     **kwargs,
 ):
+    print(f"starting training with lr {learning_rate}")
     # create dataset and dataloader
     train_set_nn_torch = TrainDelayDataset(train_set_nn_x, train_set_nn_y)
     val_set_nn_torch = TrainDelayDataset(val_set_nn_x, val_set_nn_y)
@@ -215,18 +231,19 @@ def test_test_time_dropout(load_model, val_set_nn_x, dropout_rate=0.5, **kwargs)
     return pred, unc
 
 
-def train_unc_nn(
-    train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, dropout_rate=0.5, save_path="test", **kwargs
-):
+def train_unc_nn(train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, save_path="test", **kwargs):
     """both aleatoric and epistemic uncertainty"""
     # init model with 2 outputs (mean and std)
-    model = TrainDelayMLP(train_set_nn_x.shape[1], 2, dropout_rate=dropout_rate).to(device)
+    model = TrainDelayMLP(train_set_nn_x.shape[1], 2, **kwargs).to(device)
     # # to continue training
     # model.load_state_dict(torch.load(os.path.join(save_path, "nn_2")))
     criterion = attenuation_loss
 
     # save path that allows for training one nn per obs
-    modified_save_path = save_path if "nn" in save_path else os.path.join(save_path, "nn")
+    modified_save_path = os.path.join(
+        save_path,
+        f"nn-{kwargs['first_layer_size']}-{kwargs['second_layer_size']}-{kwargs['nr_layers']}-{kwargs['learning_rate']}-{kwargs['dropout_rate']}",
+    )
 
     # train
     train_model(

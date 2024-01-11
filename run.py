@@ -198,32 +198,22 @@ if __name__ == "__main__":
     print("DATA SHAPES", train_set_nn_x.shape, train_set_nn_y.shape, test_set_nn_x.shape, test_set_nn_y.shape)
     res_dict = {}
 
-    # Test models
+    # Test all models in the folder
     model_weights = os.path.join(args.model_path, args.model_dir)
-
-    for model_type in [
-        # "simple_current_delay",
-        "simple_median",
-        "simple_mean",
-        "simple_avg",
-        "ngb",
-        "ngb_lognormal",
-        "nn",
-        # "random_forest",
-        # "nn_aleatoric",
-        # "nn_dropout",
-    ]:
+    models_to_test_list = os.listdir(model_weights) + ["simple_median", "simple_mean", "simple_avg"]
+    for model_to_test in models_to_test_list:
+        model_type = model_to_test.split("-")[0]
         # check whether pretrained model exists
-        trained_model_exists = os.path.exists(os.path.join(model_weights, model_type)) or os.path.exists(
-            os.path.join(model_weights, model_type + ".p")
+        trained_model_exists = os.path.exists(os.path.join(model_weights, model_to_test)) or os.path.exists(
+            os.path.join(model_weights, model_to_test + ".p")
         )
-        if not trained_model_exists and "simple" not in model_type:
-            print(f"Skipping {model_type} because no pretrained model available.")
+        if not trained_model_exists and "simple" not in model_to_test:
+            print(f"Skipping {model_to_test} because no pretrained model available.")
             continue
         # get the correct test function
         model_func = MODEL_FUNC_TEST[model_type]
 
-        print("-------------- ", model_type, "--------------")
+        print("-------------- ", model_to_test, "--------------")
         if "simple" in model_type:
             pred, unc = model_func(train_set, test_set)
         else:
@@ -274,12 +264,12 @@ if __name__ == "__main__":
 
             # get metrics and save in final dictionary
             save_csv_path = (
-                os.path.join("outputs", args.model_dir, model_type_name) if model_type_name in SAVE_MODELS else None
+                os.path.join("outputs", args.model_dir, model_to_test) if model_type_name in SAVE_MODELS else None
             )
             if args.pi_alpha != 0.1:
                 save_csv_path += f"alpha{args.pi_alpha}"
-            res_dict[model_type_name] = get_metrics(temp_df, save_path=save_csv_path)
-            print("metrics", res_dict[model_type_name])
+            res_dict[model_to_test] = get_metrics(temp_df, save_path=save_csv_path)
+            print("metrics", res_dict[model_to_test])
 
     result_table = pd.DataFrame(res_dict).swapaxes(1, 0).sort_values(["mean_pi_width"]).round(3)
     print(result_table)

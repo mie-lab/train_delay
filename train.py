@@ -36,7 +36,12 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--epochs", default=10, type=int, help="number of epochs")
     parser.add_argument("-o", "--out_dir", default="test", type=str, help="Name of folder to save models")
     parser.add_argument("--model_dir", default="trained_models", type=str, help="Path to save model")
-    parser.add_argument("-v", "--version", default="all_features", type=str, help="version of feature set")
+    parser.add_argument("-v", "--version", default="allfeatures", type=str, help="version of feature set")
+    parser.add_argument("--first_layer_size", default=128, type=int)
+    parser.add_argument("--second_layer_size", default=128, type=int)
+    parser.add_argument("--nr_layers", default=2, type=int)
+    parser.add_argument("--dropout_rate", default=0.5, type=float)
+    parser.add_argument("--learning_rate", default=1e-5, type=float)
     args = parser.parse_args()
 
     epochs = args.epochs
@@ -70,9 +75,8 @@ if __name__ == "__main__":
         train_set_nn_y,
         val_set_nn_x,
         val_set_nn_y,
-        epochs=epochs,
-        dropout_rate=0.5,
         save_path=out_folder,
         use_features=use_features,
+        **vars(args),
     )
     print("Runtime", time.time() - tic)
