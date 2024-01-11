@@ -19,7 +19,7 @@ def train_ngboost(train_set_rf_x, train_set_rf_y, val_set_rf_x, val_set_rf_y, sa
     ngb_mean_pred = ngb.predict(val_set_rf_x)
     print("MSE ngboost:", np.mean((ngb_mean_pred - val_set_rf_y) ** 2))
 
-    with open(os.path.join("trained_models", save_path, "ngb.p"), "wb") as outfile:
+    with open(os.path.join(save_path, "ngb.p"), "wb") as outfile:
         pickle.dump(ngb, outfile)
 
 
@@ -31,13 +31,13 @@ def train_ngboost_lognormal(
     # compute mse
     ngb_mean_pred = ngb.predict(val_set_rf_x) - OUTLIER_CUTOFF
     print("MSE ngboost:", np.mean((ngb_mean_pred - val_set_rf_y) ** 2))
-    with open(os.path.join("trained_models", save_path, "ngb_lognormal.p"), "wb") as outfile:
+    with open(os.path.join(save_path, "ngb_lognormal.p"), "wb") as outfile:
         pickle.dump(ngb, outfile)
 
 
 def test_ngb_lognormal(load_model, val_set_rf_x, return_params=False, **kwargs):
     # load trained model
-    with open(os.path.join("trained_models", load_model, "ngb_lognormal.p"), "rb") as infile:
+    with open(os.path.join(load_model, "ngb_lognormal.p"), "rb") as infile:
         ngb = pickle.load(infile)
     # predicted distribution parameters
     ngb_dist_pred = ngb.pred_dist(val_set_rf_x)
@@ -51,7 +51,7 @@ def test_ngb_lognormal(load_model, val_set_rf_x, return_params=False, **kwargs):
 
 def test_ngboost(load_model, val_set_rf_x, **kwargs):
     # load trained model
-    with open(os.path.join("trained_models", load_model, "ngb.p"), "rb") as infile:
+    with open(os.path.join(load_model, "ngb.p"), "rb") as infile:
         ngb = pickle.load(infile)
     ngb_mean_pred = ngb.predict(val_set_rf_x)
     # predicted distribution parameters

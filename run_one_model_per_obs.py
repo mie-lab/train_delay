@@ -18,7 +18,8 @@ from train_delay.mlp_model import test_test_time_dropout, test_aleatoric, test_u
 from train_delay.ngboost_model import test_ngboost, test_ngb_lognormal
 from train_delay.rf_model import test_random_forest
 from train_delay.gaussian_process import test_gaussian_process
-from run import split_train_test, get_train_val_test, get_features
+from run import split_train_test, get_train_val_test
+from feature_selection import select_features
 
 MODEL_FUNC_TEST = {
     "nn_dropout": test_test_time_dropout,
@@ -60,7 +61,7 @@ def get_metrics(temp_df, save_path=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--inp_path", type=str, default=os.path.join("data", "data_enriched.csv"))
-    parser.add_argument("-m", "--model_dir", default="test", type=str, help="name of model directory")
+    parser.add_argument("-m", "--model_dir", default="trained_models/test", type=str, help="name of model directory")
     parser.add_argument("-v", "--version", default=2, type=int, help="version of feature set")
     parser.add_argument("-p", "--plot", action="store_true", help="plot?")
     args = parser.parse_args()
@@ -72,7 +73,7 @@ if __name__ == "__main__":
     train_set, val_set, test_set = split_train_test(data)  # , save_path="data/data_enriched.csv")
 
     # select suitable features for ML models
-    use_features = get_features(data.columns, version=args.version)
+    use_features = select_features(data.columns, version=args.version)
 
     # remove features that are not relevant when only training on one observation
     use_features = [f for f in use_features if f not in ["feat_obs_count", "feat_time_since_stop"]]
@@ -128,14 +129,14 @@ if __name__ == "__main__":
     #     "nn_aleatoric",
     #     "nn_dropout",
     # ]:
-    for model_name in os.listdir(os.path.join("trained_models", args.model_dir)):
+    for model_name in os.listdir(os.path.join(args.model_dir)):
         if model_name[-3:] == "png" or model_name[0] == ".":
             continue
         model_type = "nn"
         # check whether pretrained model exists
         trained_model_exists = os.path.exists(
-            os.path.join("trained_models", args.model_dir, model_name)
-        ) or os.path.exists(os.path.join("trained_models", args.model_dir, model_type + ".p"))
+            os.path.join(args.model_dir, model_name)
+        ) or os.path.exists(os.path.join(args.model_dir, model_type + ".p"))
         if not trained_model_exists and "simple" not in model_type:
             print(f"Skipping {model_type} because no pretrained model available.")
             continue

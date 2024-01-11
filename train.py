@@ -3,7 +3,8 @@ import pandas as pd
 import argparse
 import warnings
 
-from run import get_features, split_train_test, get_train_val_test
+from feature_selection import select_features
+from run import split_train_test, get_train_val_test
 from train_delay.mlp_model import train_test_time_dropout, train_aleatoric, train_unc_nn
 from train_delay.rf_model import train_random_forest, rf_overfit
 
@@ -54,7 +55,7 @@ if __name__ == "__main__":
     # split into train, val and test
     train_set, val_set, test_set = split_train_test(data)
 
-    use_features = get_features(data.columns, version=args.version)
+    use_features = select_features(data.columns, version=args.version)
 
     (train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y) = get_train_val_test(
         train_set, val_set, test_set, use_features, training=True

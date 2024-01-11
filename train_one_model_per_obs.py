@@ -4,7 +4,8 @@ import argparse
 import warnings
 import numpy as np
 
-from run import get_features, split_train_test, get_train_val_test
+from feature_selection import select_features
+from run import split_train_test, get_train_val_test
 from train_delay.mlp_model import train_test_time_dropout, train_aleatoric, train_unc_nn
 from train_delay.rf_model import train_random_forest, rf_overfit
 from train_delay.gaussian_process import train_gaussian_process
@@ -56,7 +57,7 @@ if __name__ == "__main__":
         # split into train, val and test
         train_set, val_set, test_set = split_train_test(data_obs)
 
-        use_features = get_features(data.columns, version=args.version)
+        use_features = select_features(data.columns, version=args.version)
 
         # remove features that are not relevant when only training on one observation
         use_features = [f for f in use_features if f not in ["feat_obs_count", "feat_time_since_stop"]]

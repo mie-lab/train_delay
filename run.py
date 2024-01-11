@@ -18,6 +18,7 @@ from train_delay.metrics import (
 from train_delay.mlp_model import test_test_time_dropout, test_aleatoric, test_unc_nn
 from train_delay.ngboost_model import test_ngboost, test_ngb_lognormal
 from train_delay.rf_model import test_random_forest
+from feature_selection import select_features
 
 # from train_delay.gaussian_process import test_gaussian_process
 
@@ -131,73 +132,12 @@ def get_train_val_test(train_set, val_set, test_set, use_features, training=Fals
         )
 
 
-def get_features(columns, version=2):
-    if version == 1:
-        use_features = [
-            "feat_delay_dep",
-            "feat_obs_count",
-            "feat_time_to_end_real",
-            "feat_time_to_end_plan",
-            "feat_weather_tavg",
-            "feat_weather_tmin",
-            "feat_weather_tmax",
-            "feat_weather_prcp",
-            # "feat_weather_wdir",
-            "feat_weather_wspd",
-            "feat_weather_wpgt",
-            "feat_weather_pres",  # weather features
-            # 'feat_weather_snow' 'feat_weather_tsun'
-            "feat_trip_final_arr_plan_hour",
-            "feat_trip_final_arr_plan_day",
-            "feat_trip_final_arr_plan_hour_sin",
-            "feat_trip_final_arr_plan_hour_cos",
-            "feat_trip_final_arr_plan_day_sin",
-            "feat_trip_final_arr_plan_day_cos",  # time features
-        ]
-    # train_id_feats = [col for col in cols if col.startswith("train_id_SBB")]
-    elif version == 2:
-        # All features
-        use_features = [
-            feat
-            for feat in columns
-            if feat.startswith("feat")
-            # and not feat.startswith("feat_weather")
-            # note: weather is not contained anymore in any case
-        ]
-    elif version == 3:
-        print("Using features that are comparable features to Markov chain")
-        feats_necessary = ["feat_delay_dep", "feat_obs_count", "feat_time_to_end_plan", "feat_avg_prev_delay"]
-        # add delay in the past days
-        hist_delay = [feat for feat in columns if feat.startswith("feat_delay_day")]
-        # add historic final delay
-        hist_final_delay = [feat for feat in columns if feat.startswith("feat_final_delay-day")]
-        use_features = feats_necessary + hist_delay + hist_final_delay
-        print(use_features)
-    elif version == 4:
-        feats_necessary = [
-            "delay_dep",
-            "feat_obs_count",
-            "feat_time_to_end_plan",
-            "feat_avg_prev_delay",
-            "feat_stops",
-            "feat_time_since_stop",
-        ]
-        # add delay in the past days
-        hist_delay = [feat for feat in columns if feat.startswith("feat_delay_day")]
-        # add historic final delay
-        hist_final_delay = [feat for feat in columns if feat.startswith("feat_final_delay-day")]
-        use_features = feats_necessary + hist_delay + hist_final_delay
-        print(use_features)
-    else:
-        raise NotImplementedError
-    return use_features
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--inp_path", type=str, default=os.path.join("data", "data_enriched.csv"))
     parser.add_argument("-m", "--model_dir", default="trained_models/test", type=str, help="name of model directory")
     parser.add_argument("-v", "--version", default=2, type=int, help="version of feature set")
+    parser.add_argument("-a", "--pi_alpha", default=0.1, type=float, help="alpha for PI width calibration")
     parser.add_argument("-p", "--plot", action="store_true", help="plot?")
     args = parser.parse_args()
 
@@ -208,7 +148,7 @@ if __name__ == "__main__":
     train_set, val_set, test_set = split_train_test(data)  # , save_path="data/data_enriched.csv")
 
     # select suitable features for ML models
-    use_features = get_features(data.columns, version=args.version)
+    use_features = select_features(data.columns, version=args.version)
 
     # preprocess and dropn the ones with NaN features
     (
@@ -313,7 +253,7 @@ if __name__ == "__main__":
             if "unc_bl" in model_type_name:
                 unc_val = unc_bl_val
             # get interval bounds
-            quantiles = calibrate_pi(val_set_nn_y, pred_val, unc_val)  # , alpha=0.4)
+            quantiles = calibrate_pi(val_set_nn_y, pred_val, unc_val, alpha=args.pi_alpha)
             print("Quantiles", quantiles)
             intervals = get_intervals(temp_df["pred"].values, temp_df["unc"].values, quantiles)
             temp_df["interval_low_bound"] = intervals[:, 0] * 60
@@ -332,6 +272,8 @@ if __name__ == "__main__":
             save_csv_path = (
                 os.path.join("outputs", args.model_dir, model_type_name) if model_type_name in SAVE_MODELS else None
             )
+            if args.pi_alpha != 0.1:
+                save_csv_path += f"alpha{args.pi_alpha}"
             res_dict[model_type_name] = get_metrics(temp_df, save_path=save_csv_path)
             print("metrics", res_dict[model_type_name])
 
