@@ -29,10 +29,10 @@ def select_features(columns, version: str = "allfeatures") -> list:
             "feat_time_to_end_plan",
             "feat_avg_prev_delay",
             "feat_stops",
-            "feat_time_since_stop",
             "feat_delay_day-1",
             "feat_delay_day-2",
-            "feat_delay_day-3" "feat_final_delay-day-1",
+            "feat_delay_day-3",
+            "feat_final_delay-day-1",
             "feat_final_delay-day-2",
             "feat_final_delay-day-3",
         ]

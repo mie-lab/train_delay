@@ -62,7 +62,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--inp_path", type=str, default=os.path.join("data", "data_enriched.csv"))
     parser.add_argument("-m", "--model_dir", default="trained_models/test", type=str, help="name of model directory")
-    parser.add_argument("-v", "--version", default=2, type=int, help="version of feature set")
+    parser.add_argument("-v", "--version", default="all_features", type=str, help="version of feature set")
     parser.add_argument("-p", "--plot", action="store_true", help="plot?")
     args = parser.parse_args()
 
@@ -101,7 +101,17 @@ if __name__ == "__main__":
     # print(pd.DataFrame(res_dict).swapaxes(1, 0).sort_values("MSE"))
 
     basic_df = test_set[
-        ["train_id_daily", "train_id", "day", "DIR", "cat", "stops", "remaining_runtime", "obs_count", "delay_dep",]
+        [
+            "train_id_daily",
+            "train_id",
+            "day",
+            "DIR",
+            "cat",
+            "stops",
+            "remaining_runtime",
+            "obs_count",
+            "delay_dep",
+        ]
     ].copy()
     # ca 10000 - 60000 --> 60 bins
     basic_df["time_to_end_plan"] = test_set["feat_time_to_end_plan"].values
@@ -134,9 +144,9 @@ if __name__ == "__main__":
             continue
         model_type = "nn"
         # check whether pretrained model exists
-        trained_model_exists = os.path.exists(
-            os.path.join(args.model_dir, model_name)
-        ) or os.path.exists(os.path.join(args.model_dir, model_type + ".p"))
+        trained_model_exists = os.path.exists(os.path.join(args.model_dir, model_name)) or os.path.exists(
+            os.path.join(args.model_dir, model_type + ".p")
+        )
         if not trained_model_exists and "simple" not in model_type:
             print(f"Skipping {model_type} because no pretrained model available.")
             continue
@@ -201,4 +211,3 @@ if __name__ == "__main__":
     result_table = pd.DataFrame(res_dict).swapaxes(1, 0).sort_values(["mean_pi_width"]).round(3)
     print(result_table)
     result_table.to_csv(os.path.join("outputs", args.model_dir, "results_summary.csv"))
-

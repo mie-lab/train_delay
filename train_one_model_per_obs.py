@@ -35,7 +35,7 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--epochs", default=10, type=int, help="number of epochs")
     parser.add_argument("-o", "--out_dir", default="test", type=str, help="Where to save model")
     parser.add_argument("--model_dir", default="trained_models", type=str, help="Path to save models")
-    parser.add_argument("-v", "--version", default=2, type=int, help="version of feature set")
+    parser.add_argument("-v", "--version", default="all_features", type=str, help="version of feature set")
     args = parser.parse_args()
 
     epochs = args.epochs

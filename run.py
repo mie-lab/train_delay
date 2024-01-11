@@ -135,14 +135,18 @@ def get_train_val_test(train_set, val_set, test_set, use_features, training=Fals
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--inp_path", type=str, default=os.path.join("data", "data_enriched.csv"))
-    parser.add_argument("-m", "--model_dir", default="trained_models/test", type=str, help="name of model directory")
-    parser.add_argument("-v", "--version", default=2, type=int, help="version of feature set")
+    parser.add_argument(
+        "-m", "--model_dir", default="trained_models/test_allfeatures", type=str, help="name of model directory"
+    )
+    parser.add_argument("-v", "--version", default="all_features", type=str, help="version of feature set")
     parser.add_argument("-a", "--pi_alpha", default=0.1, type=float, help="alpha for PI width calibration")
     parser.add_argument("-p", "--plot", action="store_true", help="plot?")
     args = parser.parse_args()
 
     data = pd.read_csv(args.inp_path)
     os.makedirs(os.path.join("outputs", args.model_dir), exist_ok=True)
+
+    assert args.version in args.model_dir
 
     # split into train, val and test
     train_set, val_set, test_set = split_train_test(data)  # , save_path="data/data_enriched.csv")
