@@ -136,9 +136,8 @@ def get_train_val_test(train_set, val_set, test_set, use_features, training=Fals
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--inp_path", type=str, default=os.path.join("data", "data_enriched.csv"))
-    parser.add_argument(
-        "-m", "--model_dir", default="trained_models/test_allfeatures", type=str, help="name of model directory"
-    )
+    parser.add_argument("-m", "--model_dir", default="test_allfeatures", type=str, help="name of model directory")
+    parser.add_argument("--model_path", default="trained_models", type=str)
     parser.add_argument("-v", "--version", default="all_features", type=str, help="version of feature set")
     parser.add_argument("-a", "--pi_alpha", default=0.1, type=float, help="alpha for PI width calibration")
     parser.add_argument("-p", "--plot", action="store_true", help="plot?")
@@ -200,7 +199,7 @@ if __name__ == "__main__":
     res_dict = {}
 
     # Test models
-    model_weights = args.model_dir
+    model_weights = os.path.join(args.model_path, args.model_dir)
 
     for model_type in [
         # "simple_current_delay",
@@ -215,8 +214,8 @@ if __name__ == "__main__":
         # "nn_dropout",
     ]:
         # check whether pretrained model exists
-        trained_model_exists = os.path.exists(os.path.join(args.model_dir, model_type)) or os.path.exists(
-            os.path.join(args.model_dir, model_type + ".p")
+        trained_model_exists = os.path.exists(os.path.join(model_weights, model_type)) or os.path.exists(
+            os.path.join(model_weights, model_type + ".p")
         )
         if not trained_model_exists and "simple" not in model_type:
             print(f"Skipping {model_type} because no pretrained model available.")
