@@ -196,7 +196,7 @@ def get_features(columns, version=2):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--inp_path", type=str, default=os.path.join("data", "data_enriched.csv"))
-    parser.add_argument("-m", "--model_dir", default="test", type=str, help="name of model directory")
+    parser.add_argument("-m", "--model_dir", default="trained_models/test", type=str, help="name of model directory")
     parser.add_argument("-v", "--version", default=2, type=int, help="version of feature set")
     parser.add_argument("-p", "--plot", action="store_true", help="plot?")
     args = parser.parse_args()
@@ -270,9 +270,9 @@ if __name__ == "__main__":
         # "nn_dropout",
     ]:
         # check whether pretrained model exists
-        trained_model_exists = os.path.exists(
-            os.path.join("trained_models", args.model_dir, model_type)
-        ) or os.path.exists(os.path.join("trained_models", args.model_dir, model_type + ".p"))
+        trained_model_exists = os.path.exists(os.path.join(args.model_dir, model_type)) or os.path.exists(
+            os.path.join(args.model_dir, model_type + ".p")
+        )
         if not trained_model_exists and "simple" not in model_type:
             print(f"Skipping {model_type} because no pretrained model available.")
             continue

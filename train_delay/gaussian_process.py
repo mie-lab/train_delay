@@ -51,13 +51,13 @@ def train_gaussian_process(
     mse = mean_squared_error(pred, val_set_rf_y)
     print("MSE val", mse)
 
-    with open(os.path.join("trained_models", save_path, "gaussian_process.p"), "wb") as outfile:
+    with open(os.path.join(save_path, "gaussian_process.p"), "wb") as outfile:
         pickle.dump(m, outfile)
 
 
 def test_gaussian_process(load_model, val_set_rf_x, **kwargs):
     # load trained model
-    with open(os.path.join("trained_models", load_model, "gaussian_process.p"), "rb") as infile:
+    with open(os.path.join(load_model, "gaussian_process.p"), "rb") as infile:
         regr = pickle.load(infile)
 
     # get prediction per tree

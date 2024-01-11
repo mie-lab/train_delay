@@ -6,6 +6,7 @@ import warnings
 from run import get_features, split_train_test, get_train_val_test
 from train_delay.mlp_model import train_test_time_dropout, train_aleatoric, train_unc_nn
 from train_delay.rf_model import train_random_forest, rf_overfit
+
 # from train_delay.gaussian_process import train_gaussian_process
 from train_delay.ngboost_model import train_ngboost, train_ngboost_lognormal
 
@@ -31,15 +32,17 @@ if __name__ == "__main__":
         help="one of random_forest, gaussian_process, ngb, nn, nn_aleatoric or nn_dropout",
     )
     parser.add_argument("-e", "--epochs", default=10, type=int, help="number of epochs")
-    parser.add_argument("-o", "--out_dir", default="test", type=str, help="Where to save model")
+    parser.add_argument("-o", "--out_dir", default="test", type=str, help="Name of folder to save models")
+    parser.add_argument("--model_dir", default="trained_models", type=str, help="Path to save model")
     parser.add_argument("-v", "--version", default=2, type=int, help="version of feature set")
     args = parser.parse_args()
 
     epochs = args.epochs
     model_func = MODEL_FUNC_TRAIN[args.method]
-    if os.path.exists(os.path.join("trained_models", args.out_dir)):
+    os.makedirs(args.model_dir, exist_ok=True)
+    if os.path.exists(os.path.join(args.model_dir, args.out_dir)):
         warnings.warn("Careful: model dir already exists")
-    os.makedirs(os.path.join("trained_models", args.out_dir), exist_ok=True)
+    os.makedirs(os.path.join(args.model_dir, args.out_dir), exist_ok=True)
 
     data = pd.read_csv(args.inp_path)
     data.index.name = "id"
@@ -65,6 +68,6 @@ if __name__ == "__main__":
         val_set_nn_y,
         epochs=epochs,
         dropout_rate=0.5,
-        save_path=args.out_dir,
+        save_path=os.path.join(args.model_dir, args.out_dir),
         use_features=use_features,
     )

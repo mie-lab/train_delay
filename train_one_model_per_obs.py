@@ -33,14 +33,15 @@ if __name__ == "__main__":
     )
     parser.add_argument("-e", "--epochs", default=10, type=int, help="number of epochs")
     parser.add_argument("-o", "--out_dir", default="test", type=str, help="Where to save model")
+    parser.add_argument("--model_dir", default="trained_models", type=str, help="Path to save models")
     parser.add_argument("-v", "--version", default=2, type=int, help="version of feature set")
     args = parser.parse_args()
 
     epochs = args.epochs
     model_func = MODEL_FUNC_TRAIN[args.method]
-    if os.path.exists(os.path.join("trained_models", args.out_dir)):
+    if os.path.exists(os.path.join(args.model_dir, args.out_dir)):
         warnings.warn("Careful: model dir already exists")
-    os.makedirs(os.path.join("trained_models", args.out_dir), exist_ok=True)
+    os.makedirs(os.path.join(args.model_dir, args.out_dir), exist_ok=True)
 
     data = pd.read_csv(args.inp_path)
     data.index.name = "id"

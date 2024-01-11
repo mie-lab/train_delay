@@ -3,6 +3,10 @@ data/
 outputs/
 trained_models/
 figures/
+backups/
+ETA/
+figures_new/
+feedback_francesco/
 *.code-workspace
 .DS_Store
 *ipynb

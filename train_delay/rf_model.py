@@ -27,16 +27,16 @@ def train_random_forest(
     if use_features is not None:
         print("Most important features:")
         print(np.array(use_features)[np.argsort(regr.feature_importances_)][::-1])
-        with open(os.path.join("trained_models", save_path, "rf_feature_importances.json"), "w") as outfile:
+        with open(os.path.join(save_path, "rf_feature_importances.json"), "w") as outfile:
             json.dump(np.array(use_features)[np.argsort(regr.feature_importances_)][::-1].tolist(), outfile)
 
-    with open(os.path.join("trained_models", save_path, "random_forest.p"), "wb") as outfile:
+    with open(os.path.join(save_path, "random_forest.p"), "wb") as outfile:
         pickle.dump(regr, outfile)
 
 
 def test_random_forest(load_model, val_set_rf_x, **kwargs):
     # load trained model
-    with open(os.path.join("trained_models", load_model, "random_forest.p"), "rb") as infile:
+    with open(os.path.join(load_model, "random_forest.p"), "rb") as infile:
         regr = pickle.load(infile)
 
     # get prediction per tree
