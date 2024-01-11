@@ -154,7 +154,7 @@ def plot_losses(losses, test_losses, name):
 
 def train_aleatoric(train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, save_path="test", **kwargs):
     # init model with 2 outputs (mean and std)
-    model = TrainDelayMLP(train_set_nn_x.shape[1], 2)
+    model = TrainDelayMLP(train_set_nn_x.shape[1], 2).to(device)
     criterion = attenuation_loss
     train_model(
         model,
@@ -169,7 +169,7 @@ def train_aleatoric(train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, 
 
 
 def test_aleatoric(load_model, val_set_nn_x, **kwargs):
-    model = TrainDelayMLP(val_set_nn_x.shape[1], 2)
+    model = TrainDelayMLP(val_set_nn_x.shape[1], 2).to(device)
     model.load_state_dict(torch.load(os.path.join(load_model, "nn_aleatoric")))
     # predict
     model.eval()
@@ -184,7 +184,7 @@ def test_aleatoric(load_model, val_set_nn_x, **kwargs):
 def train_test_time_dropout(
     train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, dropout_rate=0.3, save_path="test", **kwargs
 ):
-    model = TrainDelayMLP(train_set_nn_x.shape[1], 1, dropout_rate=dropout_rate)
+    model = TrainDelayMLP(train_set_nn_x.shape[1], 1, dropout_rate=dropout_rate).to(device)
     criterion = mse_loss
 
     train_model(
@@ -200,7 +200,7 @@ def train_test_time_dropout(
 
 
 def test_test_time_dropout(load_model, val_set_nn_x, dropout_rate=0.5, **kwargs):
-    model = TrainDelayMLP(val_set_nn_x.shape[1], 1, dropout_rate=dropout_rate)
+    model = TrainDelayMLP(val_set_nn_x.shape[1], 1, dropout_rate=dropout_rate).to(device)
     model.load_state_dict(torch.load(os.path.join(load_model, "nn_dropout")))
     model.train()  # Ensure that dropout is switched on
 
@@ -220,7 +220,7 @@ def train_unc_nn(
 ):
     """both aleatoric and epistemic uncertainty"""
     # init model with 2 outputs (mean and std)
-    model = TrainDelayMLP(train_set_nn_x.shape[1], 2, dropout_rate=dropout_rate)
+    model = TrainDelayMLP(train_set_nn_x.shape[1], 2, dropout_rate=dropout_rate).to(device)
     # # to continue training
     # model.load_state_dict(torch.load(os.path.join(save_path, "nn_2")))
     criterion = attenuation_loss
@@ -244,7 +244,7 @@ def train_unc_nn(
 def test_unc_nn(load_model, val_set_nn_x, dropout_rate=0.5, nr_passes=10, **kwargs):
     """both aleatoric and epistemic uncertainty"""
     # init model with 2 outputs (mean and std)
-    model = TrainDelayMLP(val_set_nn_x.shape[1], 2, dropout_rate=dropout_rate)
+    model = TrainDelayMLP(val_set_nn_x.shape[1], 2, dropout_rate=dropout_rate).to(device)
     # make flexible load_model path --> if nn already in path, don't add it
     if "nn" not in load_model:
         load_model = os.path.join(load_model, "nn")
