@@ -133,18 +133,36 @@ def get_train_val_test(train_set, val_set, test_set, use_features, training=Fals
         )
 
 
+def extract_param_kwargs_from_name(model_to_test):
+    if "-" not in model_to_test:
+        return {}
+    # replace minuses
+    model_to_test = model_to_test.replace("1e-05", "0.00001").split("-")
+    params_kwargs = {
+        "dropout_rate": float(model_to_test[-1]),
+        "learning_rate": float(model_to_test[-2]),
+        "nr_layers": int(model_to_test[-3]),
+        "first_layer_size": int(model_to_test[-5]),
+        "second_layer_size": int(model_to_test[-4]),
+    }
+    print("PARAMS", params_kwargs)
+    return params_kwargs
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--inp_path", type=str, default=os.path.join("data", "data_enriched.csv"))
     parser.add_argument("-m", "--model_dir", default="test_allfeatures", type=str, help="name of model directory")
     parser.add_argument("--model_path", default="trained_models", type=str)
+    parser.add_argument("-o", "--out_path", default="outputs", type=str)
     parser.add_argument("-v", "--version", default="all_features", type=str, help="version of feature set")
     parser.add_argument("-a", "--pi_alpha", default=0.1, type=float, help="alpha for PI width calibration")
     parser.add_argument("-p", "--plot", action="store_true", help="plot?")
     args = parser.parse_args()
 
     data = pd.read_csv(args.inp_path)
-    os.makedirs(os.path.join("outputs", args.model_dir), exist_ok=True)
+    os.makedirs(args.out_path, exist_ok=True)
+    os.makedirs(os.path.join(args.out_path, args.model_dir), exist_ok=True)
 
     assert args.version in args.model_dir
 
@@ -200,9 +218,12 @@ if __name__ == "__main__":
 
     # Test all models in the folder
     model_weights = os.path.join(args.model_path, args.model_dir)
-    models_to_test_list = os.listdir(model_weights) + ["simple_median", "simple_mean", "simple_avg"]
+    models_to_test_list = [
+        m_file for m_file in os.listdir(model_weights) if m_file[0] != "." and m_file[-3:] != "png"
+    ] + ["simple_median", "simple_mean", "simple_avg"]
     for model_to_test in models_to_test_list:
-        model_type = model_to_test.split("-")[0]
+        # ngp.p -> ngp;  nn-128-64 -> nn
+        model_type = model_to_test.split("-")[0].split(".")[0]
         # check whether pretrained model exists
         trained_model_exists = os.path.exists(os.path.join(model_weights, model_to_test)) or os.path.exists(
             os.path.join(model_weights, model_to_test + ".p")
@@ -213,11 +234,13 @@ if __name__ == "__main__":
         # get the correct test function
         model_func = MODEL_FUNC_TEST[model_type]
 
+        param_kwargs = extract_param_kwargs_from_name(model_to_test)
+
         print("-------------- ", model_to_test, "--------------")
         if "simple" in model_type:
             pred, unc = model_func(train_set, test_set)
         else:
-            pred, unc = model_func(model_weights, test_set_nn_x, dropout_rate=0.5, return_params=False)
+            pred, unc = model_func(model_weights, test_set_nn_x, return_params=False, **param_kwargs)
             # # for aleatoric vs epistmic:
             # pred, _, unc = model_func(model_weights, test_set_nn_x, dropout_rate=0.5, return_params=False)
 
@@ -239,7 +262,7 @@ if __name__ == "__main__":
             if "simple" in model_type:
                 pred_val, unc_val = model_func(train_set, val_set)
             else:
-                pred_val, unc_val = model_func(model_weights, val_set_nn_x, dropout_rate=0.5)
+                pred_val, unc_val = model_func(model_weights, val_set_nn_x, **param_kwargs)
                 # # for aleatoric vs epistmic:
                 # pred_val, _, unc_val = model_func(model_weights, val_set_nn_x, dropout_rate=0.5)
 
@@ -264,7 +287,7 @@ if __name__ == "__main__":
 
             # get metrics and save in final dictionary
             save_csv_path = (
-                os.path.join("outputs", args.model_dir, model_to_test) if model_type_name in SAVE_MODELS else None
+                os.path.join(args.out_path, args.model_dir, model_to_test) if model_type_name in SAVE_MODELS else None
             )
             if args.pi_alpha != 0.1:
                 save_csv_path += f"alpha{args.pi_alpha}"
@@ -273,4 +296,4 @@ if __name__ == "__main__":
 
     result_table = pd.DataFrame(res_dict).swapaxes(1, 0).sort_values(["mean_pi_width"]).round(3)
     print(result_table)
-    result_table.to_csv(os.path.join("outputs", args.model_dir, "results_summary.csv"))
+    result_table.to_csv(os.path.join(args.out_path, args.model_dir, "results_summary.csv"))

@@ -33,7 +33,8 @@ class TrainDelayMLP(nn.Module):
         self.dropout2 = nn.Dropout(dropout_rate)
         self.linear_3 = nn.Linear(second_layer_size, out_size)
         self.third_layer = nr_layers == 3
-        self.linear_25 = nn.Linear(second_layer_size, second_layer_size)
+        if self.third_layer:
+            self.linear_25 = nn.Linear(second_layer_size, second_layer_size)
         self.final_act = scaling_fun[act]
         print("initialized model with", first_layer_size, second_layer_size, nr_layers, dropout_rate)
 
@@ -258,10 +259,10 @@ def train_unc_nn(train_set_nn_x, train_set_nn_y, val_set_nn_x, val_set_nn_y, sav
     )
 
 
-def test_unc_nn(load_model, val_set_nn_x, dropout_rate=0.5, nr_passes=10, **kwargs):
+def test_unc_nn(load_model, val_set_nn_x, nr_passes=10, **kwargs):
     """both aleatoric and epistemic uncertainty"""
     # init model with 2 outputs (mean and std)
-    model = TrainDelayMLP(val_set_nn_x.shape[1], 2, dropout_rate=dropout_rate).to(device)
+    model = TrainDelayMLP(val_set_nn_x.shape[1], 2, **kwargs).to(device)
     # make flexible load_model path --> if nn already in path, don't add it
     if "nn" not in load_model:
         load_model = os.path.join(load_model, "nn")
