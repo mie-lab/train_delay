@@ -23,7 +23,7 @@ class TrainDelayMLP(nn.Module):
         act="sigmoid",
         first_layer_size=128,
         second_layer_size=128,
-        nr_layers=2,
+        nr_layers=None,
         **kwargs,
     ):
         super(TrainDelayMLP, self).__init__()
@@ -33,7 +33,8 @@ class TrainDelayMLP(nn.Module):
         self.dropout2 = nn.Dropout(dropout_rate)
         self.linear_3 = nn.Linear(second_layer_size, out_size)
         self.third_layer = nr_layers == 3
-        if self.third_layer:
+        # the None is used to ensure backward compatability (models that were not saved with linear_25 in state dict)
+        if nr_layers is not None:
             self.linear_25 = nn.Linear(second_layer_size, second_layer_size)
         self.final_act = scaling_fun[act]
         print("initialized model with", first_layer_size, second_layer_size, nr_layers, dropout_rate)

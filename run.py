@@ -222,6 +222,9 @@ if __name__ == "__main__":
         m_file for m_file in os.listdir(model_weights) if m_file[0] != "." and m_file[-3:] != "png"
     ] + ["simple_median", "simple_mean", "simple_avg"]
     for model_to_test in models_to_test_list:
+        # if os.path.exists(os.path.join(args.out_path, args.model_dir, model_to_test.split("p")[0])):
+        #     print("already there", model_to_test)
+        #     continue
         # ngp.p -> ngp;  nn-128-64 -> nn
         model_type = model_to_test.split("-")[0].split(".")[0]
         # check whether pretrained model exists
@@ -231,16 +234,19 @@ if __name__ == "__main__":
         if not trained_model_exists and "simple" not in model_to_test:
             print(f"Skipping {model_to_test} because no pretrained model available.")
             continue
+
+        print("-------------- ", model_to_test, "--------------")
         # get the correct test function
         model_func = MODEL_FUNC_TEST[model_type]
 
         param_kwargs = extract_param_kwargs_from_name(model_to_test)
 
-        print("-------------- ", model_to_test, "--------------")
         if "simple" in model_type:
             pred, unc = model_func(train_set, test_set)
         else:
-            pred, unc = model_func(model_weights, test_set_nn_x, return_params=False, **param_kwargs)
+            pred, unc = model_func(
+                os.path.join(model_weights, model_to_test), test_set_nn_x, return_params=False, **param_kwargs
+            )
             # # for aleatoric vs epistmic:
             # pred, _, unc = model_func(model_weights, test_set_nn_x, dropout_rate=0.5, return_params=False)
 
@@ -262,7 +268,7 @@ if __name__ == "__main__":
             if "simple" in model_type:
                 pred_val, unc_val = model_func(train_set, val_set)
             else:
-                pred_val, unc_val = model_func(model_weights, val_set_nn_x, **param_kwargs)
+                pred_val, unc_val = model_func(os.path.join(model_weights, model_to_test), val_set_nn_x, **param_kwargs)
                 # # for aleatoric vs epistmic:
                 # pred_val, _, unc_val = model_func(model_weights, val_set_nn_x, dropout_rate=0.5)
 
@@ -278,7 +284,9 @@ if __name__ == "__main__":
 
             # Likelihood:
             if "lognormal" in model_type_name:
-                s, scale = test_ngb_lognormal(model_weights, test_set_nn_x, return_params=True)
+                s, scale = test_ngb_lognormal(
+                    os.path.join(model_weights, model_to_test), test_set_nn_x, return_params=True
+                )
                 temp_df = likelihood_lognormal(temp_df, s, scale)
             else:
                 best_factor = calibrate_likely(val_set_nn_y, pred_val, unc_val)
@@ -286,13 +294,14 @@ if __name__ == "__main__":
                 temp_df = add_likely(temp_df, factor=best_factor)
 
             # get metrics and save in final dictionary
+            cleaned_name = model_to_test.replace(".p", "")  # remove .p
             save_csv_path = (
-                os.path.join(args.out_path, args.model_dir, model_to_test) if model_type_name in SAVE_MODELS else None
+                os.path.join(args.out_path, args.model_dir, cleaned_name) if model_type_name in SAVE_MODELS else None
             )
             if args.pi_alpha != 0.1:
                 save_csv_path += f"alpha{args.pi_alpha}"
-            res_dict[model_to_test] = get_metrics(temp_df, save_path=save_csv_path)
-            print("metrics", res_dict[model_to_test])
+            res_dict[cleaned_name] = get_metrics(temp_df, save_path=save_csv_path)
+            print("metrics", res_dict[cleaned_name])
 
     result_table = pd.DataFrame(res_dict).swapaxes(1, 0).sort_values(["mean_pi_width"]).round(3)
     print(result_table)

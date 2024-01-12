@@ -11,7 +11,11 @@ from config import OUTLIER_CUTOFF
 
 def train_ngboost(train_set_rf_x, train_set_rf_y, val_set_rf_x, val_set_rf_y, save_path="test", **kwargs):
     ngb = NGBRegressor(
-        Base=learners.default_tree_learner, Dist=Normal, Score=scores.LogScore, natural_gradient=True, verbose=True,
+        Base=learners.default_tree_learner,
+        Dist=Normal,
+        Score=scores.LogScore,
+        natural_gradient=True,
+        verbose=True,
     )
     ngb.fit(train_set_rf_x, train_set_rf_y)
 
@@ -37,7 +41,7 @@ def train_ngboost_lognormal(
 
 def test_ngb_lognormal(load_model, val_set_rf_x, return_params=False, **kwargs):
     # load trained model
-    with open(os.path.join(load_model, "ngb_lognormal.p"), "rb") as infile:
+    with open(os.path.join(load_model), "rb") as infile:
         ngb = pickle.load(infile)
     # predicted distribution parameters
     ngb_dist_pred = ngb.pred_dist(val_set_rf_x)
@@ -51,7 +55,7 @@ def test_ngb_lognormal(load_model, val_set_rf_x, return_params=False, **kwargs):
 
 def test_ngboost(load_model, val_set_rf_x, **kwargs):
     # load trained model
-    with open(os.path.join(load_model, "ngb.p"), "rb") as infile:
+    with open(os.path.join(load_model), "rb") as infile:
         ngb = pickle.load(infile)
     ngb_mean_pred = ngb.predict(val_set_rf_x)
     # predicted distribution parameters
@@ -61,5 +65,3 @@ def test_ngboost(load_model, val_set_rf_x, **kwargs):
 
 def get_unc_lognormal(s, scale):
     return lognorm.ppf(0.7, s, scale=scale) - lognorm.ppf(0.3, s, scale=scale)
-
-
