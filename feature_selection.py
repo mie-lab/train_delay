@@ -37,6 +37,22 @@ def select_features(columns, version: str = "allfeatures") -> list:
             "feat_final_delay-day-3",
         ]
         print(use_features)
+    elif version == "weather":
+        use_features = [
+            "feat_delay_dep",
+            "feat_obs_count",
+            "feat_time_to_end_plan",
+            "feat_avg_prev_delay",
+            "feat_stops",
+            "feat_delay_day-1",
+            "feat_delay_day-2",
+            "feat_delay_day-3",
+            "feat_final_delay-day-1",
+            "feat_final_delay-day-2",
+            "feat_final_delay-day-3",
+            "feat_supplement_time",
+            "feat_log_buffer_time",
+        ] + [f for f in columns if "feat_weather" in f]
     elif version == "lasso":
         # see below for method to get these features
         use_features = [
