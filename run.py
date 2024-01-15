@@ -137,7 +137,7 @@ def extract_param_kwargs_from_name(model_to_test):
     if "-" not in model_to_test:
         return {}
     # replace minuses
-    model_to_test = model_to_test.replace("1e-05", "0.00001").split("-")
+    model_to_test = model_to_test.replace("1e-05", "0.00001").replace("1e-06", "0.000001").split("-")
     params_kwargs = {
         "dropout_rate": float(model_to_test[-1]),
         "learning_rate": float(model_to_test[-2]),
@@ -299,7 +299,8 @@ if __name__ == "__main__":
                 os.path.join(args.out_path, args.model_dir, cleaned_name) if model_type_name in SAVE_MODELS else None
             )
             if args.pi_alpha != 0.1:
-                save_csv_path += f"alpha{args.pi_alpha}"
+                converted_to_coverage = int((1 - args.pi_alpha) * 100)
+                save_csv_path += f"_coverage{converted_to_coverage}"
             res_dict[cleaned_name] = get_metrics(temp_df, save_path=save_csv_path)
             print("metrics", res_dict[cleaned_name])
 
