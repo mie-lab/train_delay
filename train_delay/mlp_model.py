@@ -19,7 +19,7 @@ class TrainDelayMLP(nn.Module):
         self,
         inp_size,
         out_size,
-        dropout_rate=0,
+        dropout_rate=0.5,
         act="sigmoid",
         first_layer_size=128,
         second_layer_size=128,

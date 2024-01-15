@@ -135,7 +135,7 @@ def get_train_val_test(train_set, val_set, test_set, use_features, training=Fals
 
 def extract_param_kwargs_from_name(model_to_test):
     if "-" not in model_to_test:
-        return {}
+        return {"dropout_rate": 0.5}
     # replace minuses
     model_to_test = model_to_test.replace("1e-05", "0.00001").replace("1e-06", "0.000001").split("-")
     params_kwargs = {
@@ -248,7 +248,9 @@ if __name__ == "__main__":
                 os.path.join(model_weights, model_to_test), test_set_nn_x, return_params=False, **param_kwargs
             )
             # # for aleatoric vs epistmic:
-            # pred, _, unc = model_func(model_weights, test_set_nn_x, dropout_rate=0.5, return_params=False)
+            # pred, unc, _ = model_func(
+            #     os.path.join(model_weights, model_to_test), test_set_nn_x, return_params=False, **param_kwargs
+            # )
 
         # add to the other metrics
         for model_type_name, unc_est in zip([model_type, model_type + "_unc_bl"], [unc, unc_bl]):
@@ -270,7 +272,9 @@ if __name__ == "__main__":
             else:
                 pred_val, unc_val = model_func(os.path.join(model_weights, model_to_test), val_set_nn_x, **param_kwargs)
                 # # for aleatoric vs epistmic:
-                # pred_val, _, unc_val = model_func(model_weights, val_set_nn_x, dropout_rate=0.5)
+                # pred_val, unc_val, _ = model_func(
+                #     os.path.join(model_weights, model_to_test), val_set_nn_x, **param_kwargs
+                # )
 
             # use bl uncertainty if required
             if "unc_bl" in model_type_name:
@@ -294,7 +298,7 @@ if __name__ == "__main__":
                 temp_df = add_likely(temp_df, factor=best_factor)
 
             # get metrics and save in final dictionary
-            cleaned_name = model_to_test.replace(".p", "")  # remove .p
+            cleaned_name = model_to_test.replace(".p", "")  # remove .p  # for aleatoric vs epistmic + "_epistemic"
             save_csv_path = (
                 os.path.join(args.out_path, args.model_dir, cleaned_name) if model_type_name in SAVE_MODELS else None
             )
@@ -304,6 +308,6 @@ if __name__ == "__main__":
             res_dict[cleaned_name] = get_metrics(temp_df, save_path=save_csv_path)
             print("metrics", res_dict[cleaned_name])
 
-    result_table = pd.DataFrame(res_dict).swapaxes(1, 0).sort_values(["mean_pi_width"]).round(3)
-    print(result_table)
-    result_table.to_csv(os.path.join(args.out_path, args.model_dir, "results_summary.csv"))
+    # result_table = pd.DataFrame(res_dict).swapaxes(1, 0).sort_values(["mean_pi_width"]).round(3)
+    # print(result_table)
+    # result_table.to_csv(os.path.join(args.out_path, args.model_dir, "results_summary.csv"))
