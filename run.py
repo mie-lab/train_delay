@@ -165,6 +165,15 @@ if __name__ == "__main__":
     os.makedirs(os.path.join(args.out_path, args.model_dir), exist_ok=True)
 
     assert args.version in args.model_dir
+    # # to remove outliers:
+    # data = data[(data["final_delay"] > -5) & (data["final_delay"] < 15)]
+
+    if "up_submission" in args.model_dir:
+        print("ATTENTION: reducing to up")
+        data = data[data["DIR"] == "up"]
+    elif "down_submission" in args.model_dir:
+        print("ATTENTION: reducing to down")
+        data = data[data["DIR"] == "down"]
 
     # split into train, val and test
     train_set, val_set, test_set = split_train_test(data)  # , save_path="data/data_enriched.csv")
