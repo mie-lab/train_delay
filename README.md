@@ -1,6 +1,9 @@
 # Uncertainty-aware train delay prediction
 
-This code accompanies our paper on train delay prediction under uncertainty and the analysis of predictability.
+This code accompanies our [paper](https://www.sciencedirect.com/science/article/pii/S0968090X24000846) **Quantifying the dynamic predictability of train delay with uncertainty-aware neural networks** published in *Transportation Research Part C: Emerging Technologies*. 
+
+In this paper, we propose a framework for analyzing the dynamic predictability of train delays at varying horizons, and present an uncertainty-aware neural network approach that outperforms other methods. 
+
 
 Unfortunately, the dataset is not publicly available. With similar data, this code can be used to train uncertainty-aware neural networks and to evaluate the predictions. The data should contain observations of the current and final delay, in form of a csv file with the main columns `train_id`, `obs_count`, `final_delay`, `current_delay`, etc.
 
@@ -37,4 +40,21 @@ python run.py -m model_folder_name
 Reproduce figures from our paper with the following command:
 ```
 python plotting.py
+```
+
+### References
+
+Spanninger, T., Wiedemann, N., & Corman, F. (2024). Quantifying the dynamic predictability of train delay with uncertainty-aware neural networks. Transportation Research Part C: Emerging Technologies, 162, 104563.
+
+```bib
+@article{spanninger2024quantifying,
+  title={Quantifying the dynamic predictability of train delay with uncertainty-aware neural networks},
+  author={Spanninger, Thomas and Wiedemann, Nina and Corman, Francesco},
+  journal={Transportation Research Part C: Emerging Technologies},
+  volume={162},
+  pages={104563},
+  year={2024},
+  publisher={Elsevier}
+}
+
 ```
